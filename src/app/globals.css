@@ -318,7 +318,8 @@
     letter-spacing: var(--tracking-normal);
     font-family: var(--font-sans), sans-serif;
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   body::before {
