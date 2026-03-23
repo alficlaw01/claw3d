@@ -40,7 +40,7 @@ async function main() {
   const handle = app.getRequestHandler();
 
   const accessGate = createAccessGate({
-    token: process.env.STUDIO_ACCESS_TOKEN,
+    token: "", // Auth disabled — gateway has its own auth
   });
 
   const proxy = createGatewayProxy({
