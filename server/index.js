@@ -67,6 +67,12 @@ async function main() {
 
   const createServer = () =>
     http.createServer((req, res) => {
+      if (resolvePathname(req.url) === "/health") {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ status: "ok" }));
+        return;
+      }
       if (accessGate.handleHttp(req, res)) return;
       handle(req, res);
     });
