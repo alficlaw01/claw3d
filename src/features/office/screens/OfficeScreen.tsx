@@ -796,7 +796,7 @@ export function OfficeScreen({
     voiceId: voiceRepliesPreference.voiceId,
     speed: voiceRepliesPreference.speed,
   });
-  const showOnboardingWizard = showOnboarding || forceShowOnboarding;
+  const showOnboardingWizard = false; // Disabled — use gateway connect screen instead
   const handleOpenOnboarding = useCallback(() => {
     resetOnboarding();
     setForceShowOnboarding(true);
