@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AgentStoreProvider } from "@/features/agents/state/store";
 import { OfficeScreen } from "@/features/office/screens/OfficeScreen";
+import { MissionControlPanel } from "@/features/mission-control/MissionControlPanel";
 
 const ENABLED_RE = /^(1|true|yes|on)$/i;
 
@@ -18,6 +19,7 @@ export default function OfficePage() {
       <Suspense fallback={null}>
         <OfficeScreen showOpenClawConsole={showOpenClawConsole} />
       </Suspense>
+      <MissionControlPanel />
     </AgentStoreProvider>
   );
 }
