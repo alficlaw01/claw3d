@@ -4355,7 +4355,7 @@ export function RetroOffice3D({
   const CAM_POS: [number, number, number] = [12, 12, 12];
 
   return (
-    <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden" onWheel={(e) => e.stopPropagation()}>
+    <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden" onWheel={(e) => { window.scrollBy({ top: e.deltaY, behavior: "auto" }); }}>
       {/* 3D Canvas — fills everything. */}
       <div
         className="absolute inset-0"
