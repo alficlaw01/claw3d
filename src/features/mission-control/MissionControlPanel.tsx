@@ -1,6 +1,22 @@
 "use client";
 
+import { useMemo } from "react";
+import { useAgentStore, type AgentState } from "@/features/agents/state/store";
+
 type AgentStatus = "active" | "standby" | "building";
+
+function deriveAgentStatus(liveAgent: AgentState): AgentStatus {
+  if (liveAgent.status === "running") {
+    return liveAgent.streamText !== null ? "building" : "active";
+  }
+  if (liveAgent.lastActivityAt !== null) {
+    const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+    if (liveAgent.lastActivityAt > fifteenMinutesAgo) {
+      return "active";
+    }
+  }
+  return "standby";
+}
 
 interface Agent {
   name: string;
@@ -112,7 +128,27 @@ function ProjectCard({ project }: { project: Project }) {
   );
 }
 
-export function MissionControlPanel() {
+export function MissionControlPanel({ agents }: { agents?: Map<string, AgentState> }) {
+  const { state } = useAgentStore();
+
+  // Build a lowercase-name → AgentState map: prop takes precedence, store is fallback
+  const liveByName = useMemo<Map<string, AgentState>>(() => {
+    if (agents) return agents;
+    const map = new Map<string, AgentState>();
+    for (const a of state.agents) {
+      if (a.name) map.set(a.name.toLowerCase(), a);
+    }
+    return map;
+  }, [agents, state.agents]);
+
+  // Resolve the display agent list with live statuses where available
+  const resolvedAgents = useMemo(() =>
+    AGENTS.map((agent) => {
+      const live = liveByName.get(agent.name.toLowerCase());
+      return live ? { ...agent, status: deriveAgentStatus(live) } : agent;
+    }),
+  [liveByName]);
+
   return (
     <section
       className="w-full"
@@ -143,7 +179,7 @@ export function MissionControlPanel() {
             Agent Fleet
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {AGENTS.map((agent) => (
+            {resolvedAgents.map((agent) => (
               <AgentCard key={agent.name} agent={agent} />
             ))}
           </div>
