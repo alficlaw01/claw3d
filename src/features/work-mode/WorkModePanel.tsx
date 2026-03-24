@@ -2,15 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { TopBar } from "@/components/TopBar";
+import { useAgentChat } from "@/features/work-mode/useAgentChat";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Message {
-  id: string;
-  role: "user" | "agent";
-  text: string;
-  timestamp: Date;
-}
 
 interface AgentConfig {
   id: string;
@@ -38,42 +32,30 @@ const AGENT_EMOJI: Record<string, string> = {
   cupid: "💘", judge: "⚖️", forge: "🔨",
 };
 
-const AGENT_RESPONSES = [
-  "Got it. On it — will update you shortly.",
-  "Interesting. Let me think about that and get back to you.",
-  "Roger that. Running the numbers now.",
-  "Understood. I'll flag this for the next sprint.",
-  "Acknowledged. Bringing the rest of the team up to speed.",
-  "Copy that. Diving into it right now.",
-  "Noted. Let me coordinate with the relevant parties.",
-  "Sure thing. I'll have an update for you soon.",
-];
-
 // ─── Zen palette ─────────────────────────────────────────────────────────────
 
 const Z = {
-  sumi:       "#1A1A18",
-  charcoal:   "#242422",
-  wabiGold:   "#B8A07E",
-  matcha:     "#7D8C6C",
-  clay:       "#A67C5B",
-  ricePaper:  "#E8E0D4",
-  stone:      "#7A7A72",
-  bamboo:     "#3A3A36",
-  bambooLight:"#4A4A46",
+  sumi:       "#F0E6D3",
+  charcoal:   "#E5D9C3",
+  wabiGold:   "#2D4A3E",
+  matcha:     "#3A6B55",
+  clay:       "#8B6F4E",
+  ricePaper:  "#2C2416",
+  stone:      "#7A6F5E",
+  bamboo:     "#D4C4A8",
+  bambooLight:"#DDD0B8",
 } as const;
 
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
 
 function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selected, setSelected] = useState(selectedAgent);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { messages, sendMessage: sendToAgent, loading } = useAgentChat(selected);
 
   useEffect(() => {
     setSelected(selectedAgent);
-    setMessages([]);
   }, [selectedAgent]);
 
   const emoji = AGENT_EMOJI[selected] ?? "🤖";
@@ -83,25 +65,15 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const sendMessage = () => {
     const text = input.trim();
-    if (!text) return;
-
-    const userMsg: Message = { id: `${Date.now()}-u`, role: "user", text, timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
+    if (!text || loading) return;
     setInput("");
-    scrollToBottom();
-
-    setTimeout(() => {
-      const agentMsg: Message = {
-        id: `${Date.now()}-a`,
-        role: "agent",
-        text: AGENT_RESPONSES[Math.floor(Math.random() * AGENT_RESPONSES.length)],
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, agentMsg]);
-      scrollToBottom();
-    }, 600 + Math.random() * 800);
+    void sendToAgent(text);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -130,7 +102,6 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
           value={selected}
           onChange={e => {
             setSelected(e.target.value);
-            setMessages([]);
           }}
           style={{
             width: "100%",
@@ -181,7 +152,7 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
             <span style={{ fontSize: 32, opacity: 0.4 }}>{emoji}</span>
             <p style={{ fontSize: 12, fontWeight: 600, color: Z.stone }}>Chat with {agentName}</p>
             <p style={{ fontSize: 10, color: Z.bamboo, fontFamily: "IBM Plex Mono, monospace" }}>
-              Messages are local for now
+              Connected via gateway
             </p>
           </div>
         )}
@@ -250,22 +221,22 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
         />
         <button
           onClick={sendMessage}
-          disabled={!input.trim()}
+          disabled={!input.trim() || loading}
           style={{
             padding: "8px 16px",
-            background: !input.trim() ? Z.bamboo : Z.wabiGold,
+            background: (!input.trim() || loading) ? Z.bamboo : Z.wabiGold,
             border: "none",
             borderRadius: 8,
-            color: !input.trim() ? Z.stone : Z.sumi,
+            color: (!input.trim() || loading) ? Z.stone : Z.sumi,
             fontSize: 12,
             fontWeight: 700,
-            cursor: !input.trim() ? "not-allowed" : "pointer",
+            cursor: (!input.trim() || loading) ? "not-allowed" : "pointer",
             fontFamily: "Inter, sans-serif",
             transition: "all 0.15s ease",
             whiteSpace: "nowrap",
           }}
         >
-          Send
+          {loading ? "…" : "Send"}
         </button>
       </div>
     </div>
