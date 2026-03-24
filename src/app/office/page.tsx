@@ -1,8 +1,9 @@
 "use client";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AgentStoreProvider } from "@/features/agents/state/store";
 import { OfficeScreen } from "@/features/office/screens/OfficeScreen";
 import { MissionControlPanel } from "@/features/mission-control/MissionControlPanel";
+import { WorkModePanel } from "@/features/work-mode/WorkModePanel";
 
 const ENABLED_RE = /^(1|true|yes|on)$/i;
 
@@ -12,8 +13,41 @@ const readDebugFlag = (value: string | undefined): boolean => {
   return ENABLED_RE.test(normalized);
 };
 
+const DEFAULT_PANELS = ["alfi", "scout", "benito", "pixel", "forge"];
+
 export default function OfficePage() {
   const showOpenClawConsole = readDebugFlag(process.env.DEBUG);
+
+  // Work mode state: default to true (Work Mode), persisted in localStorage
+  const [workMode, setWorkMode] = useState(true);
+  const [panelAgents, setPanelAgents] = useState<string[]>(DEFAULT_PANELS);
+  const [topHeight, setTopHeight] = useState(60);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore mode from localStorage after mount
+  useEffect(() => {
+    const stored = localStorage.getItem("claw3d-view-mode");
+    if (stored === "office") setWorkMode(false);
+    setHydrated(true);
+  }, []);
+
+  const switchToOffice = () => {
+    setWorkMode(false);
+    localStorage.setItem("claw3d-view-mode", "office");
+  };
+
+  const switchToWork = () => {
+    setWorkMode(true);
+    localStorage.setItem("claw3d-view-mode", "work");
+  };
+
+  const handleAgentChange = (panelIndex: number) => (newAgentId: string) => {
+    setPanelAgents(prev => {
+      const next = [...prev];
+      next[panelIndex] = newAgentId;
+      return next;
+    });
+  };
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -28,12 +62,57 @@ export default function OfficePage() {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  // Avoid flash of wrong mode before hydration
+  if (!hydrated) return null;
+
+  // ── Work Mode ───────────────────────────────────────────────────────────────
+  if (workMode) {
+    return (
+      <AgentStoreProvider>
+        <WorkModePanel
+          panelAgents={panelAgents}
+          onPanelAgentChange={handleAgentChange}
+          topHeight={topHeight}
+          setTopHeight={setTopHeight}
+          onSwitchToOffice={switchToOffice}
+        />
+      </AgentStoreProvider>
+    );
+  }
+
+  // ── Office Mode ─────────────────────────────────────────────────────────────
   return (
     <AgentStoreProvider>
       <div style={{ height: "100vh", position: "relative", flexShrink: 0 }}>
         <Suspense fallback={null}>
           <OfficeScreen showOpenClawConsole={showOpenClawConsole} />
         </Suspense>
+
+        {/* Work Mode toggle — floating top-right */}
+        <button
+          onClick={switchToWork}
+          style={{
+            position: "fixed",
+            top: 16,
+            right: 16,
+            zIndex: 9999,
+            background: "rgba(13, 24, 41, 0.85)",
+            border: "1px solid #C9A84C",
+            color: "#C9A84C",
+            padding: "8px 18px",
+            borderRadius: 20,
+            fontFamily: "Inter, sans-serif",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: "pointer",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            backdropFilter: "blur(8px)",
+            boxShadow: "0 0 16px rgba(201,168,76,0.2)",
+          }}
+        >
+          ⚡ Work Mode
+        </button>
 
         {/* Scroll to Mission Control button */}
         <a
