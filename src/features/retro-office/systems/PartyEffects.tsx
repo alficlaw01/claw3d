@@ -58,19 +58,10 @@ const buildConfetti = (): ConfettiPiece[] =>
     scale: Math.random() * 0.04 + 0.03,
   }));
 
-const PARTY_LIGHT_DEFS = [
-  { color: "#ff2d78", intensity: 2.5, distance: 14, x: 3, y: 4.5, z: 0 },
-  { color: "#00e5ff", intensity: 2.5, distance: 14, x: -3, y: 4.5, z: 0 },
-  { color: "#ffd700", intensity: 2.0, distance: 12, x: 0, y: 4.5, z: 3 },
-  { color: "#76ff03", intensity: 2.0, distance: 12, x: 0, y: 4.5, z: -3 },
-  { color: "#ea80fc", intensity: 1.8, distance: 10, x: 2, y: 3.5, x2: -2, z2: 2 },
-] as const;
-
 export function PartyEffects() {
   // Confetti instanced mesh
   const confettiMeshRef = useRef<THREE.InstancedMesh>(null);
   const confettiDataRef = useRef<ConfettiPiece[]>(buildConfetti());
-  const colorArrayRef = useRef<Float32Array | null>(null);
 
   const confettiGeometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
   const confettiMaterial = useMemo(
@@ -80,28 +71,19 @@ export function PartyEffects() {
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.9,
-        vertexColors: true,
       }),
     [],
   );
 
-  // Pre-build color array for vertex colors (each plane = 4 vertices × 3 RGB values)
+  // Initialise per-instance colours via setColorAt
   useEffect(() => {
-    const arr = new Float32Array(CONFETTI_COUNT * 4 * 3);
+    const mesh = confettiMeshRef.current;
+    if (!mesh) return;
     confettiDataRef.current.forEach((piece, i) => {
-      const c = new THREE.Color(piece.color);
-      for (let v = 0; v < 4; v++) {
-        arr[i * 12 + v * 3] = c.r;
-        arr[i * 12 + v * 3 + 1] = c.g;
-        arr[i * 12 + v * 3 + 2] = c.b;
-      }
+      mesh.setColorAt(i, new THREE.Color(piece.color));
     });
-    confettiGeometry.setAttribute(
-      "color",
-      new THREE.InstancedBufferAttribute(arr, 3),
-    );
-    colorArrayRef.current = arr;
-  }, [confettiGeometry]);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, []);
 
   // Disco lights rotation
   const discoGroupRef = useRef<THREE.Group>(null);
@@ -113,7 +95,7 @@ export function PartyEffects() {
     if (mesh) {
       const data = confettiDataRef.current;
       const dummy = new THREE.Object3D();
-      let needsRebuild = false;
+      let needsColorUpdate = false;
 
       for (let i = 0; i < CONFETTI_COUNT; i++) {
         const p = data[i];
@@ -133,7 +115,7 @@ export function PartyEffects() {
           p.y = CEILING_Y;
           p.x = (Math.random() - 0.5) * CONFETTI_SPREAD_X * 2;
           p.z = (Math.random() - 0.5) * CONFETTI_SPREAD_Z * 2;
-          needsRebuild = true;
+          needsColorUpdate = true;
         }
 
         dummy.position.set(p.x, p.y, p.z);
@@ -142,22 +124,15 @@ export function PartyEffects() {
         dummy.updateMatrix();
         mesh.setMatrixAt(i, dummy.matrix);
 
-        // Update vertex colors if changed
-        if (needsRebuild && colorArrayRef.current) {
-          const c = new THREE.Color(p.color);
-          const base = i * 12;
-          for (let v = 0; v < 4; v++) {
-            colorArrayRef.current[base + v * 3] = c.r;
-            colorArrayRef.current[base + v * 3 + 1] = c.g;
-            colorArrayRef.current[base + v * 3 + 2] = c.b;
-          }
+        // Refresh colour when confetti resets
+        if (needsColorUpdate) {
+          mesh.setColorAt(i, new THREE.Color(p.color));
         }
       }
 
       mesh.instanceMatrix.needsUpdate = true;
-      if (needsRebuild && colorArrayRef.current) {
-        const colorAttr = confettiGeometry.getAttribute("color");
-        if (colorAttr) (colorAttr as THREE.BufferAttribute).needsUpdate = true;
+      if (needsColorUpdate && mesh.instanceColor) {
+        mesh.instanceColor.needsUpdate = true;
       }
     }
 

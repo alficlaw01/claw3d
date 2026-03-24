@@ -191,13 +191,13 @@ import {
   PingPongBall as ScenePingPongBall,
   SpotlightEffect as SceneSpotlightEffect,
 } from "@/features/retro-office/systems/sceneRuntime";
+import { PartyEffects } from "@/features/retro-office/systems/PartyEffects";
 import {
   DeskNameplates as DeskNameplateOverlay,
   HeatmapSystem as AgentHeatmapSystem,
   TrailSystem as AgentTrailSystem,
   WeatherOverlay as WeatherAmbientOverlay,
 } from "@/features/retro-office/systems/visualSystems";
-import { PartyEffects } from "@/features/retro-office/systems/PartyEffects";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
@@ -4446,9 +4446,6 @@ export function RetroOffice3D({
             color="#7090ff"
           />
 
-          {/* Office party effects — confetti, disco lights, banner */}
-          <PartyEffects />
-
           {/* Floor + walls — always visible, no async loading. */}
           <SceneFloorAndWalls />
 
@@ -4458,6 +4455,11 @@ export function RetroOffice3D({
           {/* Environment lighting — async, wrapped in its own Suspense so floor stays visible. */}
           <Suspense fallback={null}>
             <Environment preset="city" />
+          </Suspense>
+
+          {/* Party effects — Text component inside suspends on font load, so wrap in Suspense. */}
+          <Suspense fallback={null}>
+            <PartyEffects />
           </Suspense>
 
           {/* Furniture models — each loads its GLB asynchronously. */}
