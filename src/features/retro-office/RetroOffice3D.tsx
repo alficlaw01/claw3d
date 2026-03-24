@@ -197,6 +197,7 @@ import {
   TrailSystem as AgentTrailSystem,
   WeatherOverlay as WeatherAmbientOverlay,
 } from "@/features/retro-office/systems/visualSystems";
+import { PartyEffects } from "@/features/retro-office/systems/PartyEffects";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
@@ -4444,6 +4445,9 @@ export function RetroOffice3D({
             intensity={0.4}
             color="#7090ff"
           />
+
+          {/* Office party effects — confetti, disco lights, banner */}
+          <PartyEffects />
 
           {/* Floor + walls — always visible, no async loading. */}
           <SceneFloorAndWalls />
