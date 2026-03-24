@@ -191,7 +191,7 @@ import {
   PingPongBall as ScenePingPongBall,
   SpotlightEffect as SceneSpotlightEffect,
 } from "@/features/retro-office/systems/sceneRuntime";
-import { PartyEffects } from "@/features/retro-office/systems/PartyEffects";
+import { PartyEffects, DiscoBall } from "@/features/retro-office/systems/PartyEffects";
 import {
   DeskNameplates as DeskNameplateOverlay,
   HeatmapSystem as AgentHeatmapSystem,
@@ -4459,7 +4459,7 @@ export function RetroOffice3D({
 
           {/* Party effects — Text component inside suspends on font load, so wrap in Suspense. */}
           <Suspense fallback={null}>
-            <PartyEffects />
+            <PartyEffects /><DiscoBall />
           </Suspense>
 
           {/* Furniture models — each loads its GLB asynchronously. */}

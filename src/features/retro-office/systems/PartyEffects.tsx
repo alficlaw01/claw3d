@@ -2,7 +2,7 @@
 
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
-import { useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 const CONFETTI_COUNT = 180;
@@ -202,21 +202,49 @@ export function PartyEffects() {
         position={[0, 3.5, 0]}
       />
 
-      {/* Party banner — floating in the open space above the scene */}
-      <Text
-        position={[0, 2.8, -2.5]}
-        fontSize={0.55}
-        color="#ffd700"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.03}
-        outlineColor="#ff2d78"
-        maxWidth={8}
-        textAlign="center"
-        font="https://fonts.gstatic.com/s/pressstart2p/v15/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2"
-      >
-        {"JASON HQ 🎉"}
-      </Text>
+      {/* Party banner — floating in the open space above the scene.
+          Wrapped in Suspense so font-load failures don't kill confetti + lights. */}
+      <Suspense fallback={null}>
+        <Text
+          position={[0, 2.8, -2.5]}
+          fontSize={0.55}
+          color="#ffd700"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.03}
+          outlineColor="#ff2d78"
+          maxWidth={8}
+          textAlign="center"
+        >
+          {"JASON HQ"}
+        </Text>
+      </Suspense>
     </>
+  );
+}
+
+// Disco ball — spinning sphere with mirror-like shards
+export function DiscoBall() {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (ref.current) {
+      ref.current.rotation.y = state.clock.elapsedTime * 0.5;
+    }
+  });
+  return (
+    <group position={[0, 4.5, 0]}>
+      <mesh ref={ref}>
+        <sphereGeometry args={[0.4, 16, 16]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          metalness={1}
+          roughness={0}
+          envMapIntensity={2}
+        />
+      </mesh>
+      <pointLight color="#ff69b4" intensity={3} distance={8} />
+      <pointLight color="#00ffff" intensity={3} distance={8} position={[1, 0, 0]} />
+      <pointLight color="#ffd700" intensity={3} distance={8} position={[-1, 0, 0]} />
+    </group>
   );
 }
