@@ -77,10 +77,8 @@ export function TopBar({ workModeActive, onSwitchToWork, onSwitchToOffice }: Top
 
   return (
     <div style={zen}>
-      {/* Brand */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={brandStyle}>hq</span>
-      </div>
+      {/* Spacer */}
+      <div style={{ width: 80 }} />
 
       {/* Mode toggle pills */}
       <div style={{ display: "flex", gap: 4 }}>
@@ -88,20 +86,20 @@ export function TopBar({ workModeActive, onSwitchToWork, onSwitchToOffice }: Top
           style={workModeActive ? pillActive : pillInactive}
           onClick={onSwitchToWork}
         >
-          ⚡ work
+          ⚡ Work
         </button>
         <button
           style={!workModeActive ? pillActive : pillInactive}
           onClick={onSwitchToOffice}
         >
-          🏢 office
+          🏢 Office
         </button>
       </div>
 
       {/* Status */}
       <div style={statusStyle}>
         <div style={statusDot} />
-        <span style={statusText}>systems online</span>
+        <span style={statusText}>Systems Online</span>
       </div>
     </div>
   );

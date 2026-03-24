@@ -34,10 +34,9 @@ const readOpenclawGatewayDefaults = (): { url: string; token: string } | null =>
     if (!gateway) return null;
     const auth = isRecord(gateway.auth) ? gateway.auth : null;
     const token = typeof auth?.token === "string" ? auth.token.trim() : "";
-    const port = typeof gateway.port === "number" && Number.isFinite(gateway.port) ? gateway.port : null;
+    const port = typeof gateway.port === "number" && Number.isFinite(gateway.port) ? gateway.port : 18789;
     if (!token) return null;
-    const url = port ? `ws://localhost:${port}` : "";
-    if (!url) return null;
+    const url = `ws://localhost:${port}`;
     return { url, token };
   } catch {
     return null;

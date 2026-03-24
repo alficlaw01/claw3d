@@ -86,7 +86,7 @@ export default function OfficePage() {
           <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
             {officeView === "office" && (
               <Suspense fallback={null}>
-                <OfficeScreen showOpenClawConsole={showOpenClawConsole} />
+                <OfficeScreen showOpenClawConsole={false} />
               </Suspense>
             )}
             {officeView === "fleet" && <FleetView />}

@@ -4356,7 +4356,7 @@ export function RetroOffice3D({
   const CAM_POS: [number, number, number] = [12, 12, 12];
 
   return (
-    <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden" onWheel={(e) => { window.scrollBy({ top: e.deltaY, behavior: "auto" }); }}>
+    <div className="relative w-full h-full bg-[#0F1724] font-mono text-white overflow-hidden" onWheel={(e) => { window.scrollBy({ top: e.deltaY, behavior: "auto" }); }}>
       {/* 3D Canvas — fills everything. */}
       <div
         className="absolute inset-0"
@@ -4979,7 +4979,7 @@ export function RetroOffice3D({
 
       {/* New Idea 2: Camera preset buttons — top left. */}
       {!immersiveOverlayActive ? (
-        <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-2">
+        <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-2 hidden">
           <div className="flex items-center gap-1">
             {(
               [
@@ -5035,7 +5035,7 @@ export function RetroOffice3D({
 
       {/* Title — top center overlay. */}
       {!immersiveOverlayActive ? (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none select-none z-10">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none select-none z-10 hidden">
           <div className="h-px w-12 bg-gradient-to-r from-transparent to-amber-500/40" />
           <span className="text-sm tracking-[0.3em] text-amber-300/80 font-bold uppercase">
             {officeTitle}
@@ -5046,7 +5046,7 @@ export function RetroOffice3D({
 
       {/* Agent roster — compact top summary with overflow panel. */}
       {!immersiveOverlayActive ? (
-        <div className="absolute top-10 left-1/2 z-20 -translate-x-1/2">
+        <div className="absolute top-10 left-1/2 z-20 -translate-x-1/2 hidden">
           <div className="flex items-center gap-2 rounded-full border border-amber-900/25 bg-[#1c1610]/92 px-2 py-2 shadow-lg backdrop-blur-sm">
             <div className="flex items-center -space-x-1.5">
               {compactRosterAgents.map((agent) => {
@@ -5944,7 +5944,7 @@ export function RetroOffice3D({
 
       {/* Toolbar — top right. */}
       {!immersiveOverlayActive ? (
-        <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+        <div className="absolute top-3 right-3 flex items-center gap-2 z-20 hidden">
           {/* New Idea 7: Heatmap toggle. */}
           <button
             onClick={() => setHeatmapMode((p) => !p)}

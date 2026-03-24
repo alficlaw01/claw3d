@@ -23,7 +23,9 @@ export async function GET() {
     return NextResponse.json(
       {
         settings: sanitizeStudioSettings(settings),
-        localGatewayDefaults: sanitizeStudioGatewaySettings(localGatewayDefaults),
+        localGatewayDefaults: localGatewayDefaults
+          ? { url: localGatewayDefaults.url, token: localGatewayDefaults.token }
+          : null,
       },
       { headers: { "Cache-Control": "no-store" } }
     );

@@ -156,9 +156,9 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
             </p>
           </div>
         )}
-        {messages.map(msg => (
+        {messages.map((msg, idx) => (
           <div
-            key={msg.id}
+            key={idx}
             style={{
               display: "flex",
               justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
@@ -171,7 +171,7 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
                 ? "12px 12px 4px 12px"
                 : "12px 12px 12px 4px",
               background: msg.role === "user" ? Z.clay : Z.charcoal,
-              border: msg.role === "agent" ? `1px solid ${Z.bamboo}` : "none",
+              border: msg.role === "assistant" ? `1px solid ${Z.bamboo}` : "none",
               color: msg.role === "user" ? "#fff" : Z.ricePaper,
               fontSize: 13,
               lineHeight: 1.45,
@@ -180,7 +180,7 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
               alignItems: "flex-start",
               gap: 6,
             }}>
-              {msg.role === "agent" && (
+              {msg.role === "assistant" && (
                 <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{emoji}</span>
               )}
               <span>{msg.text}</span>
@@ -200,6 +200,7 @@ function ChatPanel({ selectedAgent }: { selectedAgent: string }) {
         background: Z.sumi,
       }}>
         <textarea
+          data-chat-input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -337,6 +338,26 @@ export function WorkModePanel({
   setTopHeight: (h: number) => void;
   onSwitchToOffice: () => void;
 }) {
+  // Tab to cycle forward, Alt+Tab to cycle back between chat panels
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const textareas = Array.from(
+        document.querySelectorAll<HTMLTextAreaElement>("[data-chat-input]")
+      );
+      if (textareas.length === 0) return;
+      const activeIdx = textareas.findIndex((t) => t === document.activeElement);
+      if (activeIdx === -1 && !e.altKey) return; // Only intercept when in a chat input
+      e.preventDefault();
+      const nextIdx = e.altKey
+        ? (activeIdx <= 0 ? textareas.length - 1 : activeIdx - 1)
+        : (activeIdx + 1) % textareas.length;
+      textareas[nextIdx]?.focus();
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
   return (
     <div style={{
       display: "flex",

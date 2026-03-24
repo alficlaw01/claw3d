@@ -550,6 +550,7 @@ export const AgentStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [gatewayClient]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (didConnectRef.current) return;
     didConnectRef.current = true;
 
@@ -576,7 +577,8 @@ export const AgentStoreProvider = ({ children }: { children: ReactNode }) => {
         await gatewayClient.connect({
           gatewayUrl,
           token,
-          clientName: "claw3d-work-mode-shared",
+          clientName: "webchat",
+          authScopeKey: gatewayUrl,
         });
       } catch (err) {
         console.warn("[AgentStoreProvider] Work Mode gateway connect failed:", err);
@@ -586,8 +588,8 @@ export const AgentStoreProvider = ({ children }: { children: ReactNode }) => {
     void doConnect();
 
     return () => {
-      didConnectRef.current = false;
-      gatewayClient.disconnect();
+      // Don't disconnect on StrictMode double-mount cleanup
+      // The connection persists for the lifetime of the app
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

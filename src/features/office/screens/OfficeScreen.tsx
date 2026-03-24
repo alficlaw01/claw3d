@@ -646,7 +646,7 @@ type OfficeScreenProps = {
 };
 
 export function OfficeScreen({
-  showOpenClawConsole = true,
+  showOpenClawConsole = false,
 }: OfficeScreenProps) {
   const searchParams = useSearchParams();
   const debugEnabled = searchParams.get("officeDebug") === "1";
@@ -2880,9 +2880,9 @@ export function OfficeScreen({
         </div>
       ) : null}
 
-      {!debugEnabled ? (
-        <HQSidebar
-          open={sidebarOpen}
+      {false && !debugEnabled ? (
+        <HQSidebar 
+          open={false}
           activeTab={activeSidebarTab}
           inboxCount={unseenInboxCount}
           onToggle={() => setSidebarOpen((prev) => !prev)}
@@ -3171,7 +3171,7 @@ export function OfficeScreen({
       ) : null}
 
       <div
-        className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 ${sidebarOpen ? "right-84" : "right-3"} ${
+        className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 hidden ${sidebarOpen ? "right-84" : "right-3"} ${
           debugEnabled ? "hidden" : ""
         }`}
       >

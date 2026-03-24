@@ -1,180 +1,86 @@
-# REVIEW_JUDGE.md — Mission Control Panel QA Review
+# Judge ⚖️ — QA Review: Work Mode Chat Fix (Re-review)
 
-**Reviewer:** Judge ⚖️  
-**Date:** 2026-03-23  
-**Files reviewed:**  
-- `src/features/mission-control/MissionControlPanel.tsx`  
-- `src/app/office/page.tsx`  
-- `src/features/agents/state/store.tsx` (type surface)
-
-**Build status:** ✅ `tsc --noEmit` clean | ✅ `npm run build` clean (static route `/office`)
+**Date:** 2026-03-24
+**Reviewer:** Judge (QA Reviewer)
+**Verdict:** ✅ **APPROVED**
 
 ---
 
-## Issues Found
+## Checklist
 
-### 🔴 HIGH Priority
-
-#### H1 — No error boundary for the office route
-
-Neither `/office` nor `MissionControlPanel` has an error boundary. If `useAgentStore()` context is missing or the store throws, the **entire page** white-screens with an unhandled React error.
-
-Next.js provides a file-convention for this: `app/office/error.tsx`. There is currently **no** `error.tsx` at any level.
-
-**Fix:** Add `src/app/office/error.tsx`:
-
-```tsx
-"use client";
-
-export default function OfficeError({ error, reset }: { error: Error; reset: () => void }) {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] text-white/60 font-mono text-sm gap-4">
-      <p>Something went wrong loading Mission Control.</p>
-      <button
-        onClick={reset}
-        className="rounded border border-white/20 px-4 py-2 text-xs hover:bg-white/10"
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
-```
+| # | Criterion | Result | Notes |
+|---|-----------|--------|-------|
+| 1 | `tsc --noEmit` | ✅ PASS | Zero errors |
+| 2 | Delta accumulation logic | ✅ PASS | See analysis below |
+| 3 | UI renders clean streaming bubble | ✅ PASS | Single bubble, appended in place |
+| 4 | Final state transitions correctly | ✅ PASS | Strips `_streaming`, preserves timestamp |
+| 5 | WorkModePanel renders messages | ✅ PASS | Iterates `messages` array, no `_streaming`-specific rendering |
+| 6 | No regressions | ✅ PASS | See notes below |
 
 ---
 
-#### H2 — `MissionControlPanel` not wrapped in `Suspense`
+## Code Review: Delta Accumulation (`useAgentChat.ts`)
 
-In `page.tsx`, `OfficeScreen` is wrapped in `<Suspense fallback={null}>` but `MissionControlPanel` is **not**. If the component (or a future child) triggers a suspension, React will bubble up to the nearest boundary — which may not exist, causing a crash.
+### Chat events (`event.event === "chat"`)
 
-**Fix** in `page.tsx`:
+**Delta path (lines 140–156):**
+- Checks `prev[prev.length - 1]` — if it's an assistant message with `_streaming: true`, appends `text` to it in place (single bubble, no fragmentation).
+- If no in-progress bubble exists, creates a new one with `_streaming: true`.
+- **Correct.** No fragmented bubbles will appear.
 
-```tsx
-<AgentStoreProvider>
-  <Suspense fallback={null}>
-    <OfficeScreen showOpenClawConsole={showOpenClawConsole} />
-  </Suspense>
-  <Suspense fallback={null}>
-    <MissionControlPanel />
-  </Suspense>
-</AgentStoreProvider>
-```
+**Final path (lines 158–177):**
+- Finds the last message; if it's `_streaming`, replaces it with a clean copy: uses the final `text` if non-empty, otherwise falls back to accumulated text. Crucially, `_streaming` is **not** carried forward — the finalised message has no `_streaming` property.
+- If no in-progress bubble exists but final text is non-empty, creates a clean message directly.
+- Calls `setLoading(false)`.
+- **Correct.** Transitions cleanly from streaming → final state.
 
----
+### Agent events (`event.event === "agent"`)
 
-### 🟡 MEDIUM Priority
+- Same accumulation pattern as delta: appends to `_streaming` bubble if one exists, creates it otherwise.
+- Calls `setLoading(false)` after each agent event (no separate final event for this path).
+- **Correct.** Single bubble accumulation works the same way.
 
-#### M1 — `building` status dot has no animation — indistinguishable from static
+### localStorage persistence
 
-The amber dot for `building` status is visually static. Users can't tell if an agent is actively building or just has a colored dot. Every other dashboard convention pulses the "in-progress" indicator.
-
-**Fix:** Add `animate-pulse` to the building dot:
-
-```tsx
-const STATUS_DOT: Record<AgentStatus, string> = {
-  active:   "bg-emerald-400",
-  standby:  "bg-white/20",
-  building: "bg-amber-400 animate-pulse",
-};
-```
+- `saveHistory` filters out `_streaming` messages before persisting (line 47) — streaming state is never written to disk.
+- `loadHistory` validates shape on load — no `_streaming` leaks from storage.
+- **Correct.**
 
 ---
 
-#### M2 — Agent name matching is fragile (case-sensitive store names)
+## WorkModePanel.tsx Review
 
-`liveByName` maps by `a.name.toLowerCase()`, then looks up with `agent.name.toLowerCase()`. This works only if `name` is always present and non-empty. The store's `AgentStoreSeed.name` is typed as `string` (not `string | undefined`), so it won't crash — but empty-string names would collide in the map.
+**Message rendering (lines 159–189):**
+- Iterates `messages` with `key={idx}` — uses array index as key. Fine for a growing list where items are only appended.
+- No `_streaming`-aware rendering: all bubbles render identically. During streaming, the in-progress bubble is updated in-place via React state (same index, same key), so it animates naturally with no flicker or duplication.
+- No typing indicator / cursor shown during streaming — acceptable, not a regression.
 
-**Severity:** Low risk today (names are always set), but worth a guard:
+**Streaming/final state transitions:**
+- When `_streaming` is `true` the bubble updates text incrementally. When `final` arrives, the same array slot is replaced with a clean message. React re-renders that single bubble in-place — the user sees smooth text growth followed by finalisation. No UI artefacts.
 
-```tsx
-if (a.name) map.set(a.name.toLowerCase(), a);
-```
-
-This guard is already present ✅ — no fix needed, just noting the dependency.
-
----
-
-#### M3 — No visual separation between MissionControlPanel and OfficeScreen
-
-`MissionControlPanel` renders as a plain `<section>` directly after `OfficeScreen` with no spacing, divider, or scroll containment. Depending on OfficeScreen's height, Mission Control may be invisible below the fold with no indication to scroll.
-
-**Fix:** Add a top border or margin:
-
-```tsx
-<section
-  className="w-full border-t border-white/10"
-  style={{ backgroundColor: "#0a0a0a" }}
->
-```
+**Loading state:**
+- Send button shows `"…"` while `loading` is true and input is disabled. Cleared on `final` or `error`. Correct.
 
 ---
 
-#### M4 — Hardcoded data with no "placeholder" indicator
+## Regressions Assessment
 
-`PROJECTS` and `TODOS` are completely static arrays. Users (Jason) may think these reflect real state. There should be a subtle label indicating this is placeholder data until wired up.
-
-**Fix:** Add a temporary badge in the section headers:
-
-```tsx
-<span className="ml-2 text-[8px] text-white/20 uppercase">(demo)</span>
-```
-
----
-
-### 🟢 LOW Priority
-
-#### L1 — Status dots rely solely on color (accessibility)
-
-Color-only status indication fails WCAG 2.1 SC 1.4.1. Colorblind users can't distinguish active/standby/building.
-
-**Fix:** The `title` attribute is present (good), but consider adding a text label or icon shape variant for full a11y compliance.
+- No new TypeScript errors introduced.
+- `saveHistory` still correctly strips streaming messages before persisting.
+- Agent switch still resets messages and loading state.
+- SSR guards in localStorage helpers are intact.
+- `sendMessage` error path still shows an assistant error bubble and clears loading.
+- No regressions found.
 
 ---
 
-#### L2 — No `aria-label` or landmark role on the section
+## Summary
 
-Screen readers won't identify Mission Control as a distinct region.
+The streaming delta fix is **correct and complete**:
+1. Deltas accumulate into a single `_streaming` bubble — no fragmented bubbles.
+2. The `final` event cleanly promotes the bubble to a permanent message.
+3. TypeScript is clean (`tsc --noEmit` — zero errors).
+4. WorkModePanel renders messages correctly for both streaming and final states.
+5. No regressions.
 
-**Fix:**
-
-```tsx
-<section aria-label="Mission Control" role="region" className="w-full" ...>
-```
-
----
-
-#### L3 — TODO items are non-interactive
-
-TODOs render as read-only text with no checkbox, click handler, or completion state. This is fine for v1 placeholder but sets a UX expectation that won't be met.
-
----
-
-#### L4 — Inline style for background color instead of Tailwind class
-
-`style={{ backgroundColor: "#0a0a0a" }}` could be `className="bg-[#0a0a0a]"` for consistency with the rest of the Tailwind-based styling.
-
-**Fix:**
-
-```tsx
-<section className="w-full bg-[#0a0a0a]">
-```
-
----
-
-## What's Good ✅
-
-- **Clean TypeScript** — no type errors, proper use of `Record`, discriminated unions, and generics
-- **Smart live-status wiring** — `deriveAgentStatus()` logic is sensible (running + streamText → building, recent activity → active, else standby)
-- **Prop/store fallback pattern** — accepting optional `agents` prop with store fallback is good for testing and flexibility
-- **Memoization** — both `liveByName` and `resolvedAgents` are properly memoized with correct deps
-- **Consistent design system** — monospace type scale, gold accent (#C9A84C), white-on-black opacity layers match the Claw3D aesthetic
-- **Responsive grid** — `grid-cols-2 sm:grid-cols-3 lg:grid-cols-4` handles mobile to desktop well
-- **Build passes** — zero TypeScript errors, zero build warnings
-
----
-
-## Overall Quality Score
-
-### 7.5 / 10
-
-Solid first implementation. The code is clean, well-typed, and follows the project's conventions. The two HIGH issues (error boundary + Suspense wrapping) are real risks that should be fixed before this ships — a store hiccup will white-screen the page. The MEDIUM issues are polish items that would elevate it from "works" to "production-ready". Good work from Benito — needs a quick hardening pass.
+**APPROVED** — ship it.
