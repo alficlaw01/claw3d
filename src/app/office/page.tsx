@@ -4,6 +4,7 @@ import { AgentStoreProvider } from "@/features/agents/state/store";
 import { OfficeScreen } from "@/features/office/screens/OfficeScreen";
 import { MissionControlPanel } from "@/features/mission-control/MissionControlPanel";
 import { WorkModePanel } from "@/features/work-mode/WorkModePanel";
+import { TopBar } from "@/components/TopBar";
 
 const ENABLED_RE = /^(1|true|yes|on)$/i;
 
@@ -18,13 +19,11 @@ const DEFAULT_PANELS = ["alfi", "scout", "benito", "pixel", "forge"];
 export default function OfficePage() {
   const showOpenClawConsole = readDebugFlag(process.env.DEBUG);
 
-  // Work mode state: default to true (Work Mode), persisted in localStorage
   const [workMode, setWorkMode] = useState(true);
   const [panelAgents, setPanelAgents] = useState<string[]>(DEFAULT_PANELS);
   const [topHeight, setTopHeight] = useState(60);
   const [hydrated, setHydrated] = useState(false);
 
-  // Restore mode from localStorage after mount
   useEffect(() => {
     const stored = localStorage.getItem("claw3d-view-mode");
     if (stored === "office") setWorkMode(false);
@@ -62,7 +61,6 @@ export default function OfficePage() {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  // Avoid flash of wrong mode before hydration
   if (!hydrated) return null;
 
   // ── Work Mode ───────────────────────────────────────────────────────────────
@@ -83,38 +81,19 @@ export default function OfficePage() {
   // ── Office Mode ─────────────────────────────────────────────────────────────
   return (
     <AgentStoreProvider>
-      <div style={{ height: "100vh", position: "relative", flexShrink: 0 }}>
+      {/* Shared Zen top bar — identical to Work Mode */}
+      <TopBar
+        workModeActive={false}
+        onSwitchToWork={switchToWork}
+        onSwitchToOffice={switchToOffice}
+      />
+
+      <div style={{ height: "100vh", position: "relative", flexShrink: 0, paddingTop: 40 }}>
         <Suspense fallback={null}>
           <OfficeScreen showOpenClawConsole={showOpenClawConsole} />
         </Suspense>
 
-        {/* Work Mode toggle — floating top-right */}
-        <button
-          onClick={switchToWork}
-          style={{
-            position: "fixed",
-            top: 16,
-            right: 16,
-            zIndex: 9999,
-            background: "rgba(13, 24, 41, 0.85)",
-            border: "1px solid #C9A84C",
-            color: "#C9A84C",
-            padding: "8px 18px",
-            borderRadius: 20,
-            fontFamily: "Inter, sans-serif",
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: "pointer",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            backdropFilter: "blur(8px)",
-            boxShadow: "0 0 16px rgba(201,168,76,0.2)",
-          }}
-        >
-          ⚡ Work Mode
-        </button>
-
-        {/* Scroll to Mission Control button */}
+        {/* Scroll to Mission Control */}
         <a
           href="#mission-control"
           style={{
@@ -123,40 +102,40 @@ export default function OfficePage() {
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 100,
-            background: "rgba(201,168,76,0.25)",
-            border: "1px solid rgba(201,168,76,0.6)",
-            color: "#C9A84C",
-            padding: "12px 28px",
-            borderRadius: "24px",
-            fontFamily: "monospace",
-            fontSize: "12px",
+            background: "rgba(184, 160, 126, 0.15)",
+            border: "1px solid rgba(184, 160, 126, 0.4)",
+            color: "#B8A07E",
+            padding: "10px 24px",
+            borderRadius: "20px",
+            fontFamily: "Inter, sans-serif",
+            fontSize: "11px",
+            fontWeight: 600,
             textDecoration: "none",
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
+            letterSpacing: "0.08em",
             backdropFilter: "blur(8px)",
-            boxShadow: "0 0 20px rgba(201,168,76,0.2)",
-            animation: "pulse 2s infinite",
+            boxShadow: "0 0 20px rgba(184, 160, 126, 0.12)",
           }}
         >
           ▼ Mission Control
         </a>
       </div>
+
       <div id="mission-control">
         <MissionControlPanel />
         <div style={{ textAlign: "center", padding: "16px" }}>
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             style={{
-              background: "rgba(201,168,76,0.15)",
-              border: "1px solid rgba(201,168,76,0.4)",
-              color: "#C9A84C",
+              background: "rgba(184, 160, 126, 0.1)",
+              border: "1px solid rgba(184, 160, 126, 0.3)",
+              color: "#B8A07E",
               padding: "8px 20px",
               borderRadius: "20px",
-              fontFamily: "monospace",
+              fontFamily: "Inter, sans-serif",
               fontSize: "11px",
+              fontWeight: 600,
               cursor: "pointer",
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
+              letterSpacing: "0.08em",
             }}
           >
             ▲ Back to Office

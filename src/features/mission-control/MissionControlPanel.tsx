@@ -37,25 +37,42 @@ interface Todo {
   text: string;
 }
 
+const Z = {
+  sumi:       "#1A1A18",
+  charcoal:   "#242422",
+  wabiGold:   "#B8A07E",
+  matcha:     "#7D8C6C",
+  clay:       "#A67C5B",
+  ricePaper:  "#E8E0D4",
+  stone:      "#7A7A72",
+  bamboo:     "#3A3A36",
+  bambooLight:"#4A4A46",
+  sectionBg:  "#1E1E1C",
+} as const;
+
+const FONT = '"Segoe UI Semilight", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif';
+
+const FONT_MONO = '"IBM Plex Mono", "Menlo", monospace';
+
 const AGENTS: Agent[] = [
   { name: "Alfi",   emoji: "🤝", role: "CTO / Orchestrator",       model: "Sonnet→Opus",   status: "active"  },
   { name: "Scout",  emoji: "🔍", role: "Commercial Intelligence",   model: "Opus",          status: "standby" },
   { name: "Nova",   emoji: "🌸", role: "Project Lead — Hana",       model: "Sonnet",        status: "standby" },
-  { name: "Atlas",  emoji: "🗺️", role: "Project Lead — Flow",       model: "Sonnet",        status: "standby" },
+  { name: "Atlas",  emoji: "🗺️", role: "Project Lead — Flow",      model: "Sonnet",        status: "standby" },
   { name: "Benito", emoji: "🐇", role: "Backend Engineer",          model: "MiniMax M2.7",  status: "standby" },
   { name: "Bloom",  emoji: "🌺", role: "Frontend / Mobile",         model: "MiniMax M2.7",  status: "standby" },
   { name: "Pixel",  emoji: "🎨", role: "Frontend Engineer",         model: "MiniMax M2.7",  status: "standby" },
   { name: "Pulse",  emoji: "💓", role: "Matching Engine",           model: "MiniMax M2.7",  status: "standby" },
-  { name: "Cupid",  emoji: "💘", role: "QA Reviewer — Hana",        model: "Sonnet",        status: "standby" },
+  { name: "Cupid",  emoji: "💘", role: "QA Reviewer — Hana",       model: "Sonnet",        status: "standby" },
   { name: "Judge",  emoji: "⚖️", role: "QA Reviewer — Flow",        model: "Sonnet",        status: "standby" },
-  { name: "Forge",  emoji: "🔨", role: "Bootstrap Squad Lead",      model: "Sonnet→Opus",   status: "standby" },
+  { name: "Forge",  emoji: "🔨", role: "Bootstrap Squad Lead",      model: "Sonnet→Opus",  status: "standby" },
 ];
 
 const PROJECTS: Project[] = [
-  { name: "Hana",            emoji: "🌸", status: "Planning"   },
+  { name: "Hana",            emoji: "🌸", status: "Live"       },
   { name: "Flow",            emoji: "🏢", status: "Planning"   },
   { name: "Vinyl",           emoji: "🎵", status: "Live"       },
-  { name: "Claw3D",          emoji: "🏢", status: "Deploying"  },
+  { name: "Claw3D",          emoji: "🏢", status: "Building"    },
   { name: "Bootstrap Squad", emoji: "🔧", status: "Standby"    },
 ];
 
@@ -67,71 +84,180 @@ const TODOS: Todo[] = [
   { id: "5", text: "Add project progress bars and milestone tracking" },
 ];
 
-const STATUS_DOT: Record<AgentStatus, string> = {
-  active:   "bg-emerald-400",
-  standby:  "bg-white/20",
-  building: "bg-amber-400",
+const STATUS_DOT: Record<AgentStatus, { bg: string; glow: string }> = {
+  active:   { bg: Z.matcha,  glow: "0 0 5px rgba(125,140,108,0.5)" },
+  standby:  { bg: Z.stone,  glow: "none" },
+  building: { bg: Z.clay,   glow: "0 0 5px rgba(166,124,91,0.5)" },
 };
 
-const STATUS_LABEL: Record<AgentStatus, string> = {
-  active:   "active",
-  standby:  "standby",
-  building: "building",
+const PROJECT_STATUS_BADGE: Record<string, { bg: string; border: string; text: string }> = {
+  Live:     { bg: "rgba(125,140,108,0.1)",  border: "rgba(125,140,108,0.3)",  text: Z.matcha  },
+  Building: { bg: "rgba(166,124,91,0.1)",  border: "rgba(166,124,91,0.3)",  text: Z.clay    },
+  Planning: { bg: "rgba(184,160,126,0.1)", border: "rgba(184,160,126,0.3)", text: Z.wabiGold},
+  Standby:  { bg: "rgba(122,122,114,0.08)",border: "rgba(122,122,114,0.2)", text: Z.stone   },
 };
 
-const PROJECT_BADGE: Record<string, string> = {
-  Live:       "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-  Deploying:  "border-amber-500/40  bg-amber-500/10  text-amber-300",
-  Planning:   "border-cyan-500/40   bg-cyan-500/10   text-cyan-300",
-  Standby:    "border-white/10      bg-white/5       text-white/40",
-};
+// ─── Section header ──────────────────────────────────────────────────────────
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div style={{
+      fontFamily: FONT_MONO,
+      fontSize: 10,
+      letterSpacing: "0.22em",
+      textTransform: "uppercase",
+      color: Z.stone,
+      marginBottom: 12,
+    }}>
+      {label}
+    </div>
+  );
+}
+
+// ─── Agent card ──────────────────────────────────────────────────────────────
 
 function AgentCard({ agent }: { agent: Agent }) {
+  const dot = STATUS_DOT[agent.status];
+
   return (
-    <div
-      className="rounded border border-white/8 bg-white/[0.025] px-3 py-3 transition-colors hover:border-[#C9A84C]/30 hover:bg-[#C9A84C]/[0.04]"
+    <div style={{
+      background: Z.charcoal,
+      border: `1px solid ${Z.bamboo}`,
+      borderRadius: 6,
+      padding: "10px 12px",
+      transition: "border-color 0.2s ease",
+      cursor: "default",
+    }}
+    onMouseEnter={e => (e.currentTarget.style.borderColor = Z.bambooLight)}
+    onMouseLeave={e => (e.currentTarget.style.borderColor = Z.bamboo)}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-base leading-none">{agent.emoji}</span>
-        <span
-          className={`h-2 w-2 flex-shrink-0 rounded-full ${STATUS_DOT[agent.status]}`}
-          title={STATUS_LABEL[agent.status]}
-        />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 16, lineHeight: 1 }}>{agent.emoji}</span>
+        <div style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: dot.bg,
+          boxShadow: dot.glow,
+          flexShrink: 0,
+        }} />
       </div>
-      <div className="mt-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
+      <div style={{
+        fontFamily: FONT,
+        fontSize: 12,
+        fontWeight: 600,
+        color: Z.ricePaper,
+        letterSpacing: "0.03em",
+        marginBottom: 3,
+      }}>
         {agent.name}
       </div>
-      <div className="mt-1 font-mono text-[10px] leading-snug text-white/45">{agent.role}</div>
-      <div className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#C9A84C]/70">
+      <div style={{
+        fontFamily: FONT,
+        fontSize: 10,
+        color: Z.stone,
+        lineHeight: 1.4,
+        marginBottom: 8,
+      }}>
+        {agent.role}
+      </div>
+      <div style={{
+        fontFamily: FONT_MONO,
+        fontSize: 9,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        color: Z.wabiGold,
+        opacity: 0.75,
+      }}>
         {agent.model}
       </div>
     </div>
   );
 }
 
+// ─── Project card ────────────────────────────────────────────────────────────
+
 function ProjectCard({ project }: { project: Project }) {
-  const badgeClass =
-    PROJECT_BADGE[project.status] ?? "border-white/10 bg-white/5 text-white/40";
+  const badge = PROJECT_STATUS_BADGE[project.status] ?? PROJECT_STATUS_BADGE.Standby;
 
   return (
-    <div className="flex items-center justify-between rounded border border-white/8 bg-white/[0.025] px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <span className="text-sm leading-none">{project.emoji}</span>
-        <span className="font-mono text-[11px] text-white/85">{project.name}</span>
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      background: Z.charcoal,
+      border: `1px solid ${Z.bamboo}`,
+      borderRadius: 6,
+      padding: "10px 12px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 14, lineHeight: 1 }}>{project.emoji}</span>
+        <span style={{
+          fontFamily: FONT,
+          fontSize: 12,
+          color: Z.ricePaper,
+        }}>
+          {project.name}
+        </span>
       </div>
-      <span
-        className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${badgeClass}`}
-      >
+      <span style={{
+        fontFamily: FONT_MONO,
+        fontSize: 9,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        padding: "3px 8px",
+        borderRadius: 4,
+        background: badge.bg,
+        border: `1px solid ${badge.border}`,
+        color: badge.text,
+      }}>
         {project.status}
       </span>
     </div>
   );
 }
 
+// ─── Todo row ────────────────────────────────────────────────────────────────
+
+function TodoRow({ todo }: { todo: Todo }) {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 12,
+      background: Z.charcoal,
+      border: `1px solid ${Z.bamboo}`,
+      borderRadius: 6,
+      padding: "9px 12px",
+    }}>
+      <span style={{
+        fontFamily: FONT_MONO,
+        fontSize: 10,
+        color: Z.wabiGold,
+        opacity: 0.5,
+        flexShrink: 0,
+        marginTop: 1,
+      }}>
+        [{todo.id}]
+      </span>
+      <span style={{
+        fontFamily: FONT,
+        fontSize: 12,
+        color: Z.ricePaper,
+        opacity: 0.7,
+        lineHeight: 1.5,
+      }}>
+        {todo.text}
+      </span>
+    </div>
+  );
+}
+
+// ─── MissionControlPanel ─────────────────────────────────────────────────────
+
 export function MissionControlPanel({ agents }: { agents?: Map<string, AgentState> }) {
   const { state } = useAgentStore();
 
-  // Build a lowercase-name → AgentState map: prop takes precedence, store is fallback
   const liveByName = useMemo<Map<string, AgentState>>(() => {
     if (agents) return agents;
     const map = new Map<string, AgentState>();
@@ -141,7 +267,6 @@ export function MissionControlPanel({ agents }: { agents?: Map<string, AgentStat
     return map;
   }, [agents, state.agents]);
 
-  // Resolve the display agent list with live statuses where available
   const resolvedAgents = useMemo(() =>
     AGENTS.map((agent) => {
       const live = liveByName.get(agent.name.toLowerCase());
@@ -150,35 +275,57 @@ export function MissionControlPanel({ agents }: { agents?: Map<string, AgentStat
   [liveByName]);
 
   return (
-    <section
-      className="w-full"
-      style={{ backgroundColor: "#0a0a0a" }}
-    >
+    <section style={{
+      width: "100%",
+      background: Z.sumi,
+    }}>
       {/* Header */}
-      <div className="border-b border-[#C9A84C]/15 px-6 py-5">
-        <div className="flex items-baseline gap-3">
-          <h2
-            className="font-mono text-xs uppercase tracking-[0.3em] text-[#C9A84C]"
-          >
+      <div style={{
+        borderBottom: `1px solid ${Z.bamboo}`,
+        padding: "20px 24px 16px",
+      }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{
+            fontFamily: FONT,
+            fontSize: 11,
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            color: Z.wabiGold,
+          }}>
             Mission Control
-          </h2>
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/25">
-            HQ · Claw3D
+          </span>
+          <span style={{
+            fontFamily: FONT_MONO,
+            fontSize: 9,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: Z.stone,
+            opacity: 0.5,
+          }}>
+            hq · Claw3D
           </span>
         </div>
-        <p className="mt-1 font-mono text-[10px] text-white/30">
+        <p style={{
+          fontFamily: FONT,
+          fontSize: 11,
+          color: Z.stone,
+          margin: "4px 0 0",
+          opacity: 0.6,
+        }}>
           Agent fleet status, active projects, and open work items.
         </p>
       </div>
 
-      <div className="px-6 py-6 space-y-8">
+      <div style={{ padding: "24px" }}>
 
         {/* Agent Fleet */}
-        <div>
-          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
-            Agent Fleet
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div style={{ marginBottom: 32 }}>
+          <SectionHeader label="Agent Fleet" />
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            gap: 8,
+          }}>
             {resolvedAgents.map((agent) => (
               <AgentCard key={agent.name} agent={agent} />
             ))}
@@ -186,11 +333,13 @@ export function MissionControlPanel({ agents }: { agents?: Map<string, AgentStat
         </div>
 
         {/* Active Projects */}
-        <div>
-          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
-            Active Projects
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div style={{ marginBottom: 32 }}>
+          <SectionHeader label="Active Projects" />
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 6,
+          }}>
             {PROJECTS.map((project) => (
               <ProjectCard key={project.name} project={project} />
             ))}
@@ -199,20 +348,10 @@ export function MissionControlPanel({ agents }: { agents?: Map<string, AgentStat
 
         {/* Open TODOs */}
         <div>
-          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
-            Open TODOs
-          </div>
-          <div className="space-y-1.5">
+          <SectionHeader label="Open TODOs" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {TODOS.map((todo) => (
-              <div
-                key={todo.id}
-                className="flex items-start gap-3 rounded border border-white/6 bg-white/[0.02] px-3 py-2"
-              >
-                <span className="mt-px font-mono text-[10px] text-[#C9A84C]/50">
-                  [{todo.id}]
-                </span>
-                <span className="font-mono text-[11px] text-white/60">{todo.text}</span>
-              </div>
+              <TodoRow key={todo.id} todo={todo} />
             ))}
           </div>
         </div>

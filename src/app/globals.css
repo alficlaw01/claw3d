@@ -8,7 +8,7 @@
 :root {
   --neutral-tint-rgb: rgb(90 132 154);
   --neutral-tint: #5a849a;
-  --background: #f7f9fc;
+  --background: #1A1A18;
   --foreground: rgb(27 33 43);
   --card: #ffffff;
   --card-foreground: rgb(27 33 43);
@@ -135,7 +135,7 @@
   --radius: 1rem;
   --neutral-tint-rgb: rgb(108 146 176);
   --neutral-tint: #6c92b0;
-  --background: #0b1118;
+  --background: #1A1A18;
   --foreground: rgb(246 250 255 / 0.97);
   --card: #121a24;
   --card-foreground: rgb(246 250 255 / 0.97);
@@ -316,7 +316,7 @@
     min-height: 100vh;
     margin: 0;
     letter-spacing: var(--tracking-normal);
-    font-family: var(--font-sans), sans-serif;
+    font-family: "Segoe UI Semilight", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
     position: relative;
     overflow-x: hidden;
     overflow-y: auto;
@@ -325,13 +325,10 @@
   body::before {
     content: "";
     position: fixed;
-    inset: -30%;
+    inset: 0;
     z-index: -2;
-    background:
-      radial-gradient(circle at 16% 18%, color-mix(in oklch, var(--border) 24%, transparent), transparent 42%),
-      radial-gradient(circle at 84% 8%, color-mix(in oklch, var(--muted) 58%, transparent), transparent 34%),
-      linear-gradient(148deg, color-mix(in oklch, var(--background) 94%, white) 0%, var(--background) 62%, color-mix(in oklch, var(--background) 90%, black) 100%);
-    transform: rotate(-2deg) scale(1.04);
+    background: var(--background);
+    pointer-events: none;
   }
 
   body::after {
@@ -339,11 +336,8 @@
     position: fixed;
     inset: 0;
     z-index: -1;
-    background-image:
-      linear-gradient(transparent 95%, color-mix(in oklch, var(--border) 58%, transparent) 96%),
-      linear-gradient(90deg, transparent 95%, color-mix(in oklch, var(--border) 52%, transparent) 96%);
-    background-size: 30px 30px;
-    opacity: 0.14;
+    background-image: none;
+    opacity: 0;
     pointer-events: none;
   }
 

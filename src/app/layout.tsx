@@ -3,7 +3,7 @@ import { Bebas_Neue, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Claw3D",
+  title: "Jason's Home",
   description: "Focused operator studio for the OpenClaw gateway.",
 };
 
