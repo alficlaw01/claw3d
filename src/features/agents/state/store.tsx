@@ -586,6 +586,7 @@ export const AgentStoreProvider = ({ children }: { children: ReactNode }) => {
     void doConnect();
 
     return () => {
+      didConnectRef.current = false;
       gatewayClient.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

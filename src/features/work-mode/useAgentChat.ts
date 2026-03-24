@@ -10,6 +10,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   timestamp: number;
+  /** Internal flag — true while the message is still being streamed. Not persisted. */
+  _streaming?: boolean;
 }
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
@@ -23,7 +25,15 @@ const loadHistory = (agentId: string): ChatMessage[] => {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as ChatMessage[];
+    // Validate shape — don't trust stale/corrupted data
+    return parsed.filter(
+      (m): m is ChatMessage =>
+        m !== null &&
+        typeof m === "object" &&
+        (m.role === "user" || m.role === "assistant") &&
+        typeof m.text === "string" &&
+        typeof m.timestamp === "number"
+    );
   } catch {
     return [];
   }
@@ -32,7 +42,11 @@ const loadHistory = (agentId: string): ChatMessage[] => {
 const saveHistory = (agentId: string, messages: ChatMessage[]): void => {
   if (typeof window === "undefined") return;
   try {
-    const capped = messages.slice(-MAX_HISTORY);
+    // Strip internal _streaming flag before persisting
+    const capped = messages
+      .filter((m) => !m._streaming)
+      .slice(-MAX_HISTORY)
+      .map(({ _streaming: _s, ...rest }) => rest);
     localStorage.setItem(`chat-history-${agentId}`, JSON.stringify(capped));
   } catch {
     // localStorage quota or SSR — ignore
@@ -122,13 +136,43 @@ export function useAgentChat(agentId: string) {
         if (role !== "assistant") return;
 
         const text = extractTextFromMessage(message).trim();
-        if (!text) return;
 
-        setMessages((prev) => {
-          const next = [...prev, { role: "assistant" as const, text, timestamp: Date.now() }];
-          return next;
-        });
-        if (state === "final") {
+        if (state === "delta") {
+          // Accumulate into the in-progress assistant message
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last._streaming) {
+              // Append to existing streaming bubble
+              return [
+                ...prev.slice(0, -1),
+                { ...last, text: last.text + text },
+              ];
+            }
+            // First delta — create new streaming bubble
+            return [
+              ...prev,
+              { role: "assistant" as const, text, timestamp: Date.now(), _streaming: true },
+            ];
+          });
+        } else {
+          // state === "final" — finalise the streaming bubble
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last._streaming) {
+              // Use final text if provided, otherwise keep accumulated text
+              const finalText = text || last.text;
+              return [
+                ...prev.slice(0, -1),
+                { role: "assistant" as const, text: finalText, timestamp: last.timestamp },
+              ];
+            }
+            // No in-progress bubble — just add the complete message
+            if (!text) return prev;
+            return [
+              ...prev,
+              { role: "assistant" as const, text, timestamp: Date.now() },
+            ];
+          });
           setLoading(false);
         }
       } else if (event.event === "agent") {
@@ -145,10 +189,21 @@ export function useAgentChat(agentId: string) {
         const text = typeof data.text === "string" ? data.text.trim() : "";
         if (!text) return;
 
+        // Accumulate incremental agent stream events
         setMessages((prev) => {
-          const next = [...prev, { role: "assistant" as const, text, timestamp: Date.now() }];
-          return next;
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && last._streaming) {
+            return [
+              ...prev.slice(0, -1),
+              { ...last, text: last.text + text },
+            ];
+          }
+          return [
+            ...prev,
+            { role: "assistant" as const, text, timestamp: Date.now(), _streaming: true },
+          ];
         });
+        // Mark stream done — agent events don't have a separate final event
         setLoading(false);
       }
     });
