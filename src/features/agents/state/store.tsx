@@ -4,8 +4,11 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
+  useRef,
+  useState,
   type ReactNode,
 } from "react";
 import type { AgentAvatarProfile } from "@/lib/avatars/profile";
@@ -19,6 +22,8 @@ import {
   type TranscriptAppendMeta,
   type TranscriptEntry,
 } from "@/features/agents/state/transcript";
+import { GatewayClient, type GatewayStatus } from "@/lib/gateway/GatewayClient";
+import { resolveStudioProxyGatewayUrl } from "@/lib/gateway/proxy-url";
 
 export type AgentStatus = "idle" | "running" | "error";
 export type FocusFilter = "all" | "running" | "approvals";
@@ -503,6 +508,10 @@ type AgentStoreContextValue = {
   hydrateAgents: (agents: AgentStoreSeed[], selectedAgentId?: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  /** Shared GatewayClient for Work Mode chat panels. Null until connected. */
+  gatewayClient: GatewayClient | null;
+  /** Connection status of the shared Work Mode gateway client. */
+  gatewayStatus: GatewayStatus;
 };
 
 const AgentStoreContext = createContext<AgentStoreContextValue | null>(null);
@@ -527,9 +536,64 @@ export const AgentStoreProvider = ({ children }: { children: ReactNode }) => {
     [dispatch]
   );
 
+  // ── Shared gateway client for Work Mode chat ───────────────────────────────
+  const [gatewayClient] = useState<GatewayClient>(() => new GatewayClient());
+  const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus>("disconnected");
+  const didConnectRef = useRef(false);
+
+  useEffect(() => {
+    // Subscribe to status updates
+    const unsub = gatewayClient.onStatus((status) => {
+      setGatewayStatus(status);
+    });
+    return unsub;
+  }, [gatewayClient]);
+
+  useEffect(() => {
+    if (didConnectRef.current) return;
+    didConnectRef.current = true;
+
+    const doConnect = async () => {
+      try {
+        const res = await fetch("/api/studio");
+        let token = "";
+        if (res.ok) {
+          const data: unknown = await res.json();
+          if (
+            data &&
+            typeof data === "object" &&
+            "localGatewayDefaults" in data &&
+            data.localGatewayDefaults &&
+            typeof data.localGatewayDefaults === "object" &&
+            "token" in data.localGatewayDefaults &&
+            typeof (data.localGatewayDefaults as Record<string, unknown>).token === "string"
+          ) {
+            token = (data.localGatewayDefaults as Record<string, string>).token;
+          }
+        }
+
+        const gatewayUrl = resolveStudioProxyGatewayUrl();
+        await gatewayClient.connect({
+          gatewayUrl,
+          token,
+          clientName: "claw3d-work-mode-shared",
+        });
+      } catch (err) {
+        console.warn("[AgentStoreProvider] Work Mode gateway connect failed:", err);
+      }
+    };
+
+    void doConnect();
+
+    return () => {
+      gatewayClient.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const value = useMemo(
-    () => ({ state, dispatch, hydrateAgents, setLoading, setError }),
-    [dispatch, hydrateAgents, setError, setLoading, state]
+    () => ({ state, dispatch, hydrateAgents, setLoading, setError, gatewayClient, gatewayStatus }),
+    [dispatch, hydrateAgents, setError, setLoading, state, gatewayClient, gatewayStatus]
   );
 
   return (

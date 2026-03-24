@@ -1,292 +1,208 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GatewayClient } from "@/lib/gateway/GatewayClient";
-import { resolveStudioProxyGatewayUrl } from "@/lib/gateway/proxy-url";
-import { extractText } from "@/lib/text/message-extract";
+import { useAgentStore } from "@/features/agents/state/store";
+import type { EventFrame } from "@/lib/gateway/GatewayClient";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {
-  id: string;
-  role: "user" | "agent";
+  role: "user" | "assistant";
   text: string;
-  timestamp: Date;
+  timestamp: number;
 }
 
-const DEFAULT_GATEWAY_URL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_GATEWAY_URL) ||
-  "ws://localhost:18789";
+// ── localStorage helpers ──────────────────────────────────────────────────────
 
-// Shared gateway client singleton for Work Mode panels
-let sharedClient: GatewayClient | null = null;
-let sharedConnectPromise: Promise<void> | null = null;
+const MAX_HISTORY = 100;
 
-const getSharedClient = (): { client: GatewayClient; connectPromise: Promise<void> } => {
-  if (!sharedClient) {
-    sharedClient = new GatewayClient();
-    sharedConnectPromise = (async () => {
-      try {
-        // Try proxy first (same-origin), fall back to direct
-        let gatewayUrl: string;
-        try {
-          gatewayUrl = resolveStudioProxyGatewayUrl();
-        } catch {
-          gatewayUrl = DEFAULT_GATEWAY_URL;
-        }
-        await sharedClient!.connect({
-          gatewayUrl,
-          clientName: "claw3d-work-mode",
-        });
-      } catch {
-        // Proxy failed — try direct gateway URL
-        try {
-          sharedClient = new GatewayClient();
-          await sharedClient!.connect({
-            gatewayUrl: DEFAULT_GATEWAY_URL,
-            clientName: "claw3d-work-mode",
-          });
-        } catch (err2) {
-          console.warn("[useAgentChat] Could not connect to gateway:", err2);
-          sharedClient = null;
-          sharedConnectPromise = null;
-        }
-      }
-    })();
+const loadHistory = (agentId: string): ChatMessage[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(`chat-history-${agentId}`);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as ChatMessage[];
+  } catch {
+    return [];
   }
-  return { client: sharedClient!, connectPromise: sharedConnectPromise! };
 };
 
-export function useAgentChat(agentId: string) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const clientRef = useRef<GatewayClient | null>(null);
-  const sessionKey = `agent:${agentId}:main`;
-  const pendingRunIdRef = useRef<string | null>(null);
-  const streamBufferRef = useRef<string>("");
-  const streamMsgIdRef = useRef<string | null>(null);
+const saveHistory = (agentId: string, messages: ChatMessage[]): void => {
+  if (typeof window === "undefined") return;
+  try {
+    const capped = messages.slice(-MAX_HISTORY);
+    localStorage.setItem(`chat-history-${agentId}`, JSON.stringify(capped));
+  } catch {
+    // localStorage quota or SSR — ignore
+  }
+};
 
-  // Reset when agentId changes
+// ── ChatEventPayload ──────────────────────────────────────────────────────────
+
+type ChatEventPayload = {
+  sessionKey?: string;
+  state?: string;
+  message?: Record<string, unknown>;
+};
+
+const extractTextFromMessage = (message: Record<string, unknown>): string => {
+  const content = message.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+      .filter((c) => c.type === "text" && typeof c.text === "string")
+      .map((c) => c.text as string)
+      .join("");
+  }
+  if (typeof message.text === "string") return message.text;
+  return "";
+};
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export function useAgentChat(agentId: string) {
+  const { gatewayClient, gatewayStatus } = useAgentStore();
+
+  // Load initial history from localStorage
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory(agentId));
+  const [loading, setLoading] = useState(false);
+
+  const agentIdRef = useRef(agentId);
+  const messagesRef = useRef<ChatMessage[]>(messages);
+
+  // Sync refs
   useEffect(() => {
-    setMessages([]);
-    setLoading(false);
-    pendingRunIdRef.current = null;
-    streamBufferRef.current = "";
-    streamMsgIdRef.current = null;
+    agentIdRef.current = agentId;
   }, [agentId]);
 
-  // Connect and attach event listener
   useEffect(() => {
-    const { client, connectPromise } = getSharedClient();
-    clientRef.current = client;
+    messagesRef.current = messages;
+  }, [messages]);
 
-    const cleanup = client.onEvent((event) => {
-      const payload = event.payload as Record<string, unknown> | null | undefined;
+  // Reset and reload history when agent changes
+  useEffect(() => {
+    const history = loadHistory(agentId);
+    setMessages(history);
+    setLoading(false);
+  }, [agentId]);
+
+  // Save to localStorage whenever messages change
+  useEffect(() => {
+    saveHistory(agentId, messages);
+  }, [agentId, messages]);
+
+  // Listen for gateway events from this agent
+  useEffect(() => {
+    if (!gatewayClient) return;
+
+    const unsub = gatewayClient.onEvent((event: EventFrame) => {
+      // EventFrame: { type: "event", event: "chat"|"agent", payload: {...} }
+      if (event.event !== "chat" && event.event !== "agent") return;
+
+      const payload = event.payload as ChatEventPayload | undefined;
       if (!payload) return;
 
-      const eventSessionKey =
-        typeof payload.sessionKey === "string" ? payload.sessionKey : null;
-      if (eventSessionKey && eventSessionKey !== sessionKey) return;
+      // Filter by sessionKey — must match agent:${agentId}:main
+      const expectedSessionKey = `agent:${agentIdRef.current}:main`;
+      const eventSessionKey = payload.sessionKey ?? "";
+      if (eventSessionKey && eventSessionKey !== expectedSessionKey) return;
 
-      // chat event — assistant turn delta / final
       if (event.event === "chat") {
-        const state =
-          typeof payload.state === "string" ? payload.state : null;
-        const runId =
-          typeof payload.runId === "string" ? payload.runId : null;
+        // chat events: state=delta|final|aborted|error, message={role, content}
+        const state = payload.state ?? "";
+        if (state !== "delta" && state !== "final") return;
 
-        if (runId && pendingRunIdRef.current && runId !== pendingRunIdRef.current) return;
+        const message = payload.message;
+        if (!message || typeof message !== "object") return;
 
-        if (state === "delta") {
-          const message = payload.message;
-          const raw =
-            typeof message === "string"
-              ? message
-              : typeof message === "object" && message !== null && "content" in message
-                ? String((message as { content: unknown }).content)
-                : null;
-          if (raw) {
-            const text = extractText(raw) || raw;
-            streamBufferRef.current += text;
+        const role = message.role;
+        if (role !== "assistant") return;
 
-            setMessages((prev) => {
-              if (streamMsgIdRef.current) {
-                return prev.map((m) =>
-                  m.id === streamMsgIdRef.current
-                    ? { ...m, text: streamBufferRef.current }
-                    : m
-                );
-              } else {
-                const msgId = `${Date.now()}-stream`;
-                streamMsgIdRef.current = msgId;
-                return [
-                  ...prev,
-                  {
-                    id: msgId,
-                    role: "agent",
-                    text: streamBufferRef.current,
-                    timestamp: new Date(),
-                  },
-                ];
-              }
-            });
-          }
-        } else if (state === "final" || state === "aborted" || state === "error") {
-          // Finalise the stream message
-          const message = payload.message;
-          const raw =
-            typeof message === "string"
-              ? message
-              : typeof message === "object" && message !== null && "content" in message
-                ? String((message as { content: unknown }).content)
-                : null;
+        const text = extractTextFromMessage(message).trim();
+        if (!text) return;
 
-          if (raw) {
-            const finalText = extractText(raw) || raw;
-            setMessages((prev) => {
-              if (streamMsgIdRef.current) {
-                return prev.map((m) =>
-                  m.id === streamMsgIdRef.current
-                    ? { ...m, text: finalText }
-                    : m
-                );
-              }
-              return [
-                ...prev,
-                {
-                  id: `${Date.now()}-final`,
-                  role: "agent",
-                  text: finalText,
-                  timestamp: new Date(),
-                },
-              ];
-            });
-          }
-
-          // Reset stream state
-          streamBufferRef.current = "";
-          streamMsgIdRef.current = null;
-          pendingRunIdRef.current = null;
+        setMessages((prev) => {
+          const next = [...prev, { role: "assistant" as const, text, timestamp: Date.now() }];
+          return next;
+        });
+        if (state === "final") {
           setLoading(false);
         }
-      }
+      } else if (event.event === "agent") {
+        // agent events: stream="assistant", data={text}
+        const agentPayload = event.payload as Record<string, unknown> | undefined;
+        if (!agentPayload) return;
 
-      // agent event — streaming assistant text
-      if (event.event === "agent") {
-        const stream = typeof payload.stream === "string" ? payload.stream : null;
-        const data = payload.data as Record<string, unknown> | null | undefined;
-        const runId =
-          typeof payload.runId === "string" ? payload.runId : null;
-
-        if (runId && pendingRunIdRef.current && runId !== pendingRunIdRef.current) return;
+        const stream = agentPayload.stream;
         if (stream !== "assistant") return;
 
-        const text =
-          data && typeof data.text === "string"
-            ? data.text
-            : null;
+        const data = agentPayload.data as Record<string, unknown> | undefined;
+        if (!data) return;
 
-        if (text) {
-          streamBufferRef.current = text; // agent stream gives full accumulated text
-          setMessages((prev) => {
-            if (streamMsgIdRef.current) {
-              return prev.map((m) =>
-                m.id === streamMsgIdRef.current
-                  ? { ...m, text: streamBufferRef.current }
-                  : m
-              );
-            } else {
-              const msgId = `${Date.now()}-agent-stream`;
-              streamMsgIdRef.current = msgId;
-              return [
-                ...prev,
-                {
-                  id: msgId,
-                  role: "agent",
-                  text: streamBufferRef.current,
-                  timestamp: new Date(),
-                },
-              ];
-            }
-          });
-        }
+        const text = typeof data.text === "string" ? data.text.trim() : "";
+        if (!text) return;
+
+        setMessages((prev) => {
+          const next = [...prev, { role: "assistant" as const, text, timestamp: Date.now() }];
+          return next;
+        });
+        setLoading(false);
       }
     });
 
-    // Ensure connected
-    connectPromise?.catch(() => {});
-
-    return cleanup;
-  }, [sessionKey]);
+    return unsub;
+  }, [gatewayClient]);
 
   const sendMessage = useCallback(
     async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || loading) return;
+      if (!text.trim()) return;
 
       // Optimistically add user message
-      const userMsg: ChatMessage = {
-        id: `${Date.now()}-u`,
-        role: "user",
-        text: trimmed,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", text, timestamp: Date.now() },
+      ]);
       setLoading(true);
 
-      // Reset stream state
-      streamBufferRef.current = "";
-      streamMsgIdRef.current = null;
-
-      const client = clientRef.current;
-      if (!client) {
+      if (!gatewayClient || gatewayStatus !== "connected") {
         setMessages((prev) => [
           ...prev,
           {
-            id: `${Date.now()}-err`,
-            role: "agent",
-            text: "⚠️ Gateway not connected. Check your connection settings.",
-            timestamp: new Date(),
+            role: "assistant",
+            text: "⚠️ Not connected to gateway. Try refreshing the page.",
+            timestamp: Date.now(),
           },
         ]);
         setLoading(false);
         return;
       }
 
+      const sessionKey = `agent:${agentIdRef.current}:main`;
+
       try {
-        const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        pendingRunIdRef.current = runId;
-
-        const result = await client.call("chat.send", {
+        await gatewayClient.call("chat.send", {
           sessionKey,
-          message: trimmed,
+          message: text,
           deliver: false,
-          idempotencyKey: runId,
         });
-
-        // If gateway returns immediately (no streaming), show result
-        const res = result as Record<string, unknown> | null | undefined;
-        const status = res && typeof res.status === "string" ? res.status : null;
-        if (status !== "started" && status !== "in_flight") {
-          // Terminal immediate — no streaming expected
-          pendingRunIdRef.current = null;
-          setLoading(false);
-        }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Gateway error";
+        console.error("[useAgentChat] Send failed:", err);
         setMessages((prev) => [
           ...prev,
           {
-            id: `${Date.now()}-err`,
-            role: "agent",
-            text: `⚠️ ${msg}`,
-            timestamp: new Date(),
+            role: "assistant",
+            text: `⚠️ Failed to send: ${err instanceof Error ? err.message : "Unknown error"}`,
+            timestamp: Date.now(),
           },
         ]);
-        pendingRunIdRef.current = null;
         setLoading(false);
       }
     },
-    [loading, sessionKey]
+    [gatewayClient, gatewayStatus]
   );
 
-  return { messages, sendMessage, loading };
+  return { messages, sendMessage, loading, gatewayStatus };
 }
