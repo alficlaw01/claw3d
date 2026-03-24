@@ -1,65 +1,39 @@
-// Zen Theme — Japanese Minka House aesthetic for Claw3D
-// Colours inspired by sumi ink, aged bronze, matcha, and rice paper
-
+// Theme — Clean dark navy + white
 export const zen = {
   colors: {
-    // Backgrounds
-    sumi:       "#1A1A18",  // Sumi ink — dark wood, main background
-    charcoal:   "#242422",  // Charcoal wood — panels, cards
-    surface:    "#242422",  // Alias for charcoal (semantic)
+    sumi:       "#0F1724",  // Dark navy — main background
+    charcoal:   "#1A2332",  // Slightly lighter navy — panels, cards
+    surface:    "#1A2332",
 
-    // Accents
-    wabiGold:   "#B8A07E",  // Aged bronze — headings, highlights
-    matcha:     "#7D8C6C",  // Muted green — status, active
-    clay:       "#A67C5B",  // Warm earth — user bubbles, highlights
+    wabiGold:   "#FFFFFF",  // White — headings
+    matcha:     "#34D399",  // Green — active status
+    clay:       "#3B82F6",  // Blue — user bubbles
 
-    // Text
-    ricePaper:  "#E8E0D4",  // Warm white — primary text
-    stone:      "#7A7A72",  // Stone — secondary text, muted
+    ricePaper:  "#FFFFFF",  // White — primary text
+    stone:      "#94A3B8",  // Slate — secondary text
 
-    // Borders
-    bamboo:     "#3A3A36",  // Bamboo — subtle dividers
-    bambooLight:"#4A4A46",  // Lighter bamboo variant
+    bamboo:     "#1E293B",  // Dark border
+    bambooLight:"#334155",  // Lighter border
 
-    // Status dots
-    matchaGreen:"#7D8C6C",  // Matcha (active)
-    stoneGray:  "#7A7A72",  // Stone (standby)
-    clayWarm:   "#A67C5B",  // Clay (building)
+    matchaGreen:"#34D399",
+    stoneGray:  "#64748B",
+    clayWarm:   "#F59E0B",
   },
-
   fonts: {
     heading: '"Segoe UI Semilight", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
     body:    '"Segoe UI Semilight", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
     mono:    '"IBM Plex Mono", "Menlo", monospace',
   },
-
-  // Shared top bar styles
   topBar: {
     height: 40,
-    background: "#1A1A18",
-    borderBottom: "1px solid #3A3A36",
+    background: "#0F1724",
+    borderBottom: "1px solid #1E293B",
     paddingX: 16,
   },
-
-  // Shared panel styles
   panel: {
-    background: "#242422",
-    border: "1px solid #3A3A36",
+    background: "#1A2332",
+    border: "1px solid #1E293B",
   },
 } as const;
-
-// CSS variable string to inject via globals.css
-export const zenCSSVariables = `
-  --zen-sumi: #1A1A18;
-  --zen-charcoal: #242422;
-  --zen-wabi-gold: #B8A07E;
-  --zen-matcha: #7D8C6C;
-  --zen-clay: #A67C5B;
-  --zen-rice-paper: #E8E0D4;
-  --zen-stone: #7A7A72;
-  --zen-bamboo: #3A3A36;
-  --zen-bamboo-light: #4A4A46;
-`;
-
-// Type helpers
+export const zenCSSVariables = "";
 export type ZenColors = typeof zen.colors;

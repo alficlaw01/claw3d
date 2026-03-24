@@ -35,15 +35,15 @@ const AGENT_EMOJI: Record<string, string> = {
 // ─── Zen palette ─────────────────────────────────────────────────────────────
 
 const Z = {
-  sumi:       "#F0E6D3",
-  charcoal:   "#E5D9C3",
-  wabiGold:   "#2D4A3E",
-  matcha:     "#3A6B55",
-  clay:       "#8B6F4E",
-  ricePaper:  "#2C2416",
-  stone:      "#7A6F5E",
-  bamboo:     "#D4C4A8",
-  bambooLight:"#DDD0B8",
+  sumi:       "#0F1724",
+  charcoal:   "#1A2332",
+  wabiGold:   "#FFFFFF",
+  matcha:     "#34D399",
+  clay:       "#3B82F6",
+  ricePaper:  "#FFFFFF",
+  stone:      "#94A3B8",
+  bamboo:     "#1E293B",
+  bambooLight:"#334155",
 } as const;
 
 // ─── Chat Panel ───────────────────────────────────────────────────────────────

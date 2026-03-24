@@ -10,8 +10,8 @@ interface TopBarProps {
 
 export function TopBar({ workModeActive, onSwitchToWork, onSwitchToOffice }: TopBarProps) {
   const zen = {
-    background: "#1A1A18",
-    borderBottom: "1px solid #3A3A36",
+    background: "#0F1724",
+    borderBottom: "1px solid #1E293B",
     height: 40,
     display: "flex",
     alignItems: "center",
@@ -21,9 +21,9 @@ export function TopBar({ workModeActive, onSwitchToWork, onSwitchToOffice }: Top
   } as const;
 
   const brandStyle = {
-    fontFamily: '"Noto Serif JP", Georgia, serif',
+    fontFamily: '"Segoe UI Semilight", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 13,
-    color: "#B8A07E",
+    color: "#FFFFFF",
     letterSpacing: "0.02em",
     userSelect: "none" as const,
   };
@@ -42,15 +42,15 @@ export function TopBar({ workModeActive, onSwitchToWork, onSwitchToOffice }: Top
   const pillInactive = {
     ...pillBase,
     background: "transparent",
-    border: "1px solid #3A3A36",
-    color: "#7A7A72",
+    border: "1px solid #1E293B",
+    color: "#94A3B8",
   };
 
   const pillActive = {
     ...pillBase,
-    background: "rgba(184, 160, 126, 0.12)",
-    border: "1px solid rgba(184, 160, 126, 0.35)",
-    color: "#B8A07E",
+    background: "rgba(255, 255, 255, 0.1)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    color: "#FFFFFF",
   };
 
   const statusStyle = {
@@ -63,13 +63,13 @@ export function TopBar({ workModeActive, onSwitchToWork, onSwitchToOffice }: Top
     width: 6,
     height: 6,
     borderRadius: "50%",
-    background: "#7D8C6C",
-    boxShadow: "0 0 5px rgba(125, 140, 108, 0.5)",
+    background: "#34D399",
+    boxShadow: "0 0 5px rgba(52, 211, 153, 0.5)",
     flexShrink: 0,
   };
 
   const statusText = {
-    color: "#7A7A72",
+    color: "#94A3B8",
     fontSize: 10,
     letterSpacing: "0.05em",
     userSelect: "none" as const,
