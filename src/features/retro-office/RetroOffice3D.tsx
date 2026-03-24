@@ -4875,24 +4875,9 @@ export function RetroOffice3D({
                 onUnhover={isJanitor ? undefined : handleAgentUnhover}
                 onClick={isJanitor ? undefined : handleAgentClick}
                 onContextMenu={isJanitor ? undefined : handleAgentContextMenu}
-                showSpeech={
-                  isJanitor
-                    ? false
-                    : standupMeeting?.phase === "in_progress"
-                      ? Boolean(standupSpeechTextByAgentId[agent.id])
-                      : speechAgentIds.has(agent.id)
-                }
-                speechText={
-                  isJanitor
-                    ? null
-                    : standupMeeting?.phase === "in_progress"
-                      ? (standupSpeechTextByAgentId[agent.id] ?? null)
-                      : (speechTextByAgentId[agent.id] ?? null)
-                }
-                suppressSpeechBubble={
-                  suppressSceneSpeechBubbles &&
-                  standupMeeting?.currentSpeakerAgentId !== agent.id
-                }
+                showSpeech={false}
+                speechText={null}
+                suppressSpeechBubble={true}
               />
             );
           })}

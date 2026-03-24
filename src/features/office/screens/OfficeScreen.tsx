@@ -2771,7 +2771,7 @@ export function OfficeScreen({
     "Connected to the gateway, but no agents were loaded into the office.";
 
   return (
-    <main className="h-full w-full overflow-hidden bg-black">
+    <main className="h-full w-full overflow-visible bg-black">
       <RetroOffice3D
         agents={officeAgents}
         animationState={officeAnimationState}
