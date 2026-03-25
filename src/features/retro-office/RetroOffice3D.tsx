@@ -372,6 +372,15 @@ const PALETTE: PaletteEntry[] = [
   },
   { type: "computer", label: "Computer", icon: "🖥️", defaults: {} },
   { type: "lamp", label: "Lamp", icon: "💡", defaults: {} },
+  // Gym equipment
+  { type: "treadmill", label: "Treadmill", icon: "🏃", defaults: { w: 60, h: 30 } },
+  { type: "weight_bench", label: "Weight Bench", icon: "🏋️", defaults: { w: 50, h: 30 } },
+  { type: "dumbbell_rack", label: "Dumbbells", icon: "💪", defaults: { w: 40, h: 20 } },
+  { type: "exercise_bike", label: "Bike", icon: "🚴", defaults: { w: 40, h: 30 } },
+  { type: "punching_bag", label: "Punch Bag", icon: "🥊", defaults: {} },
+  { type: "rowing_machine", label: "Rower", icon: "🚣", defaults: { w: 60, h: 25 } },
+  { type: "kettlebell_rack", label: "Kettlebells", icon: "🔔", defaults: { w: 30, h: 20 } },
+  { type: "yoga_mat", label: "Yoga Mat", icon: "🧘", defaults: { w: 60, h: 25 } },
 ];
 
 // ============================================================

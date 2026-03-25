@@ -1,6 +1,6 @@
 export const DESK_STICKY_MS = 10_000;
 export const SNAP_GRID = 10;
-export const STORAGE_KEY = "openclaw-office-furniture-v9";
+export const STORAGE_KEY = "openclaw-office-furniture-v10";
 export const ATM_MIGRATION_KEY = "openclaw-office-atm-migration-v1";
 export const SERVER_ROOM_MIGRATION_KEY =
   "openclaw-office-server-room-migration-v3";
@@ -22,7 +22,7 @@ export const BUMP_FREEZE_MS = 1500;
 export const BUMP_RECOVERY_MS = 1200;
 export const AGENT_RADIUS = 20;
 export const SEPARATION_STRENGTH = 3;
-export const CANVAS_W = 1800;
+export const CANVAS_W = 1660;
 export const CANVAS_H = 720;
 export const EAST_WING_START_X = 1092;
 export const EAST_WING_SIDE_MARGIN = 34;
@@ -31,7 +31,7 @@ export const EAST_WING_ROOM_HEIGHT = 640;
 export const EAST_HALL_WIDTH = 56;
 export const EAST_WING_SPECIALTY_ROOM_WIDTH = 176;
 export const GYM_ROOM_X = EAST_WING_START_X + EAST_WING_SIDE_MARGIN;
-export const GYM_ROOM_WIDTH = EAST_WING_SPECIALTY_ROOM_WIDTH;
+export const GYM_ROOM_WIDTH = 264; // ~50% wider than the 176 EAST_WING_SPECIALTY_ROOM_WIDTH
 export const GYM_ROOM_END_X = GYM_ROOM_X + GYM_ROOM_WIDTH;
 export const QA_LAB_X = GYM_ROOM_END_X + EAST_HALL_WIDTH;
 export const QA_LAB_WIDTH = EAST_WING_SPECIALTY_ROOM_WIDTH;

@@ -1,23 +1,21 @@
-# Judge QA Review — Gym Camera Fix
+# Judge QA Review — QA Overlay + Console Fix
 
 **Date:** 2026-03-25  
-**Commit:** bfdcf93  
+**Commit:** 1dd08d4  
 **Verdict:** ✅ APPROVED
 
 ## Checks
 
 | # | Check | Result |
 |---|-------|--------|
-| 1 | `npx tsc --noEmit` | ✅ Zero errors (no output) |
-| 2 | `overview` preset in cameraLighting.tsx | ✅ `pos: [14, 14, 12], target: [8, 0, 0], zoom: 45` — correct |
-| 3 | `gym` preset in cameraLighting.tsx | ✅ `pos: [22, 12, 12], target: [20, 0, 0], zoom: 65` — correct |
-| 4 | Gym button in RetroOffice3D.tsx | ✅ Present in nav row with `<Dumbbell>` icon, key `"gym"`, title `"Gym"` |
-| 5 | Button references `CAMERA_PRESET_MAP[key]` | ✅ Valid — `CAMERA_PRESET_MAP` is imported as `CAMERA_PRESETS` from cameraLighting, which contains `gym` key |
-| 6 | Existing buttons (overview/frontDesk/lounge) | ✅ Unchanged, all present in the same `as const` array |
-| 7 | `curl localhost:3000/office` | ✅ HTTP 200 |
+| 1 | `npx tsc --noEmit` | ✅ Zero errors |
+| 2 | SHOW_CONSOLE logic | ✅ Correct — hardcoded `false`, passed as prop. No env var or settings toggle exists that should re-enable it. `?officeDebug=1` query param provides a separate debug panel for development. |
+| 3 | QA overlay fix | ✅ Correct — commenting out the `setQaTestingAgentId(activeQaTestingAgentId)` useEffect prevents the immersive overlay from auto-opening. The second useEffect (still active) correctly selects the QA agent for chat without triggering the overlay. `qaTestingAgentId` starts as `null` and can still be set via manual interaction paths in RetroOffice3D. |
+| 4 | Camera presets | ✅ Reasonable — actual gym preset is `pos: [4, 8, 8], target: [4, 0, 0], zoom: 100` (differs from brief's stated values but these are subjective tuning params). |
+| 5 | No regressions | ✅ `curl http://localhost:3000/office` → 200 |
 
 ## Notes
 
-- Clean addition. The `Dumbbell` icon is imported from lucide-react at the top of the file.
-- The `satisfies Record<string, CameraPreset>` constraint on `CAMERA_PRESETS` ensures type safety for any new preset keys.
-- No regressions detected.
+- **No dead code risk:** `qaTestingAgentId` state + setter still used by dismiss handler and cleanup useEffect — no orphaned code.
+- **Console prop chain clean:** `SHOW_CONSOLE → showOpenClawConsole prop → conditional render` — straightforward, no leaks.
+- **Previous gym preset** (from commit bfdcf93) was `pos: [22, 12, 12], target: [20, 0, 0], zoom: 65` — this revision brings it closer to center, reasonable refinement.

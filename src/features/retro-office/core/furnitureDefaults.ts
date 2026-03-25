@@ -313,8 +313,8 @@ const DEFAULT_GYM_ITEMS: FurnitureSeed[] = [
   },
   {
     type: "door",
-    x: 1280,
-    y: 280,
+    x: GYM_ROOM_END_X,
+    y: 260,
     w: DOOR_LENGTH,
     h: DOOR_THICKNESS,
     facing: 90,
@@ -326,16 +326,20 @@ const DEFAULT_GYM_ITEMS: FurnitureSeed[] = [
     w: WALL_THICKNESS,
     h: 380,
   },
-  { type: "treadmill", x: 1142, y: 90, facing: 90 },
-  { type: "weight_bench", x: 1204, y: 92, facing: 90 },
-  { type: "dumbbell_rack", x: 1220, y: 160, facing: 180 },
-  { type: "rowing_machine", x: 1140, y: 222, facing: 90 },
-  { type: "kettlebell_rack", x: 1224, y: 248, facing: 180 },
-  { type: "exercise_bike", x: 1146, y: 366, facing: 90 },
-  { type: "punching_bag", x: 1266, y: 380, facing: 0 },
-  { type: "yoga_mat", x: 1168, y: 542, facing: 0, color: "#0f766e" },
-  { type: "plant", x: 1268, y: 82 },
-  { type: "plant", x: 1268, y: 622 },
+  // Left column — cardio row
+  { type: "treadmill", x: 1148, y: 88, facing: 90 },
+  { type: "rowing_machine", x: 1146, y: 230, facing: 90 },
+  { type: "exercise_bike", x: 1148, y: 378, facing: 90 },
+  { type: "yoga_mat", x: 1176, y: 540, facing: 0, color: "#0f766e" },
+  // Right column — weights row
+  { type: "weight_bench", x: 1278, y: 88, facing: 90 },
+  { type: "dumbbell_rack", x: 1288, y: 182, facing: 180 },
+  { type: "kettlebell_rack", x: 1290, y: 264, facing: 180 },
+  { type: "punching_bag", x: 1340, y: 388, facing: 0 },
+  { type: "yoga_mat", x: 1270, y: 540, facing: 0, color: "#7c3aed" },
+  // Corner plants
+  { type: "plant", x: 1368, y: 48 },
+  { type: "plant", x: 1368, y: 620 },
 ];
 
 const DEFAULT_QA_LAB_ITEMS: FurnitureSeed[] = [
@@ -348,8 +352,8 @@ const DEFAULT_QA_LAB_ITEMS: FurnitureSeed[] = [
   },
   {
     type: "door",
-    x: 1340,
-    y: 280,
+    x: QA_LAB_X,
+    y: 260,
     w: DOOR_LENGTH,
     h: DOOR_THICKNESS,
     facing: 90,
@@ -382,13 +386,13 @@ const DEFAULT_QA_LAB_ITEMS: FurnitureSeed[] = [
     w: WALL_THICKNESS,
     h: EAST_WING_ROOM_HEIGHT,
   },
-  { type: "qa_terminal", x: 1374, y: 92, facing: 90 },
-  { type: "device_rack", x: 1454, y: 92, facing: 180 },
-  { type: "device_rack", x: 1454, y: 204, facing: 180 },
-  { type: "test_bench", x: 1372, y: 316, facing: 90 },
-  { type: "test_bench", x: 1372, y: 450, facing: 90 },
-  { type: "plant", x: 1496, y: 82 },
-  { type: "plant", x: 1496, y: 622 },
+  { type: "qa_terminal", x: 1468, y: 92, facing: 90 },
+  { type: "device_rack", x: 1548, y: 92, facing: 180 },
+  { type: "device_rack", x: 1548, y: 204, facing: 180 },
+  { type: "test_bench", x: 1466, y: 316, facing: 90 },
+  { type: "test_bench", x: 1466, y: 450, facing: 90 },
+  { type: "plant", x: 1590, y: 82 },
+  { type: "plant", x: 1590, y: 622 },
 ];
 
 const DEFAULT_ART_ROOM_ITEMS: FurnitureSeed[] = [

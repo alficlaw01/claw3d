@@ -15,8 +15,8 @@ export type CameraPreset = {
 
 export const CAMERA_PRESETS = {
   overview: {
-    pos: [2, 14, 12],
-    target: [2, 0, 0],
+    pos: [0, 14, 12],
+    target: [0, 0, 0],
     zoom: 45,
   },
   frontDesk: {
