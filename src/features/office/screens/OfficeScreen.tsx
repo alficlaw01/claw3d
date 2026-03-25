@@ -1792,9 +1792,12 @@ export function OfficeScreen({
     dispatch({ type: "selectAgent", agentId: activeGithubReviewAgentId });
   }, [activeGithubReviewAgentId, dispatch]);
 
-  useEffect(() => {
-    setQaTestingAgentId(activeQaTestingAgentId);
-  }, [activeQaTestingAgentId]);
+  // Disabled: auto-setting qaTestingAgentId causes QA Lab immersive overlay to
+  // auto-open and block the entire office view. Overlays should only open on
+  // manual user click, not automatically when an agent holds a QA terminal.
+  // useEffect(() => {
+  //   setQaTestingAgentId(activeQaTestingAgentId);
+  // }, [activeQaTestingAgentId]);
 
   useEffect(() => {
     if (!activeQaTestingAgentId) return;

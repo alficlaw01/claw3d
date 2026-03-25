@@ -30,9 +30,9 @@ export const CAMERA_PRESETS = {
     zoom: 62,
   },
   gym: {
-    pos: [5, 10, 10],
-    target: [5, 0, 0],
-    zoom: 70,
+    pos: [4, 8, 8],
+    target: [4, 0, 0],
+    zoom: 100,
   },
 } satisfies Record<string, CameraPreset>;
 

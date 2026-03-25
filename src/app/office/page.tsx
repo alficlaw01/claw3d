@@ -31,11 +31,8 @@ function OfficeLoadingFallback() {
   )
 }
 
-const SHOW_CONSOLE =
-  typeof process !== 'undefined'
-    ? /^(1|true|yes|on)$/i.test((process.env.DEBUG ?? '').trim()) ||
-      (process.env.DEBUG ?? '').trim() === ''
-    : true
+// Event console disabled — set to false to hide the OpenClaw event bar
+const SHOW_CONSOLE = false
 
 export default function OfficePage() {
   const [activeView, setActiveView] = useState<ActiveView>('mission-control')
