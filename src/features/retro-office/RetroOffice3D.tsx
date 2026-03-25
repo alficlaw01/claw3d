@@ -1999,8 +1999,8 @@ export function RetroOffice3D({
   const resolvedGithubReviewByAgentId =
     animationState?.githubHoldByAgentId ??
     (githubReviewAgentId ? { [githubReviewAgentId]: true } : {});
-  const [furniture, setFurniture] = useState<FurnitureItem[]>(() =>
-    ensureOfficeQaLab(
+  const [furniture, setFurniture] = useState<FurnitureItem[]>(() => {
+    const items = ensureOfficeQaLab(
       ensureOfficeGymRoom(
         ensureOfficeServerRoom(
           ensureOfficePhoneBooth(
@@ -2016,8 +2016,17 @@ export function RetroOffice3D({
           ),
         ),
       ),
-    ),
-  );
+    );
+    // Mark all migrations as applied AFTER rooms have been ensured,
+    // so the ensure* functions can add missing rooms on first load.
+    markAtmMigrationApplied();
+    markPhoneBoothMigrationApplied();
+    markSmsBoothMigrationApplied();
+    markServerRoomMigrationApplied();
+    markGymRoomMigrationApplied();
+    markQaLabMigrationApplied();
+    return items;
+  });
   const [editMode, setEditMode] = useState(false);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [hoverUid, setHoverUid] = useState<string | null>(null);
@@ -2156,29 +2165,9 @@ export function RetroOffice3D({
   const [githubImmersiveReady, setGithubImmersiveReady] = useState(false);
   const [qaImmersiveReady, setQaImmersiveReady] = useState(false);
 
-  useEffect(() => {
-    markAtmMigrationApplied();
-  }, []);
-
-  useEffect(() => {
-    markPhoneBoothMigrationApplied();
-  }, []);
-
-  useEffect(() => {
-    markSmsBoothMigrationApplied();
-  }, []);
-
-  useEffect(() => {
-    markServerRoomMigrationApplied();
-  }, []);
-
-  useEffect(() => {
-    markGymRoomMigrationApplied();
-  }, []);
-
-  useEffect(() => {
-    markQaLabMigrationApplied();
-  }, []);
+  // Migration flags are marked after furniture initialisation to avoid
+  // suppressing the migration logic that adds rooms on first load.
+  // Each mark call is intentionally deferred so ensureOffice* fns run first.
 
   useEffect(() => {
     followAgentIdRef.current = followAgentId;

@@ -1,55 +1,34 @@
-# Judge QA Review — Crons Section in Setup Tab
+# Judge QA Review — Subagent Attribution in Usage Dashboard
 
-Date: 2026-03-25
-Verdict: **REJECTED**
+**Date:** 2026-03-25  
+**Reviewer:** Judge ⚖️  
+**Built by:** Pixel 🎨  
+**Project:** ~/Projects/Claw3D/ (office.alficlaw.uk)
 
 ## Summary
 
-The Crons section UI is well-built — clean card design, proper loading/error/empty states, correct schedule formatting, relative timestamps, green/grey left borders. TypeScript compiles with zero new errors. The component code is solid.
+New per-subagent attribution feature in the Usage dashboard. API reads `~/.openclaw/subagents/runs.json`, extracts agent names from labels (split on first hyphen), aggregates runs/duration/outcomes, and returns a `bySubagent` array. Frontend renders a new "🤖 Agent Runs" section with per-agent cards showing emoji, model badge, run count, duration, relative time, and outcome dots with a stacked bar.
 
-**However, the API route is fundamentally broken.** The gateway at `localhost:18789` does **not** expose an HTTP `/rpc` endpoint. It returns 404 for all HTTP POST requests to `/rpc`. The gateway uses WebSocket-based RPC (as seen in `GatewayBrowserClient.ts`), not HTTP REST. This means the cron data can never be fetched — the feature is non-functional in production.
+## Checks
+
+| # | Check | Result |
+|---|-------|--------|
+| 1 | `npx tsc --noEmit` — zero errors | ✅ PASS |
+| 2 | API returns `bySubagent` with real data | ✅ PASS — 2 agents (pixel: 3 runs, judge: 3 runs) |
+| 3 | `extractAgentName()` correct | ✅ PASS — `pixel-setup-tab`→`pixel`, `judge-crons-tab`→`judge` |
+| 4 | Reads `runs.json`, handles missing file | ✅ PASS — try/catch returns `[]` on failure |
+| 5 | Outcome mapping handles `status === "ok"` | ✅ PASS — code checks `'ok' \|\| 'completed'` |
+| 6 | No regressions — existing panels render | ✅ PASS — daily, byModel, byAgent all present in API response |
+| 7 | `/office` loads (200) | ✅ PASS |
 
 ## Issues Found
 
-### CRITICAL
-
-**1. API route targets non-existent HTTP endpoint — crons will never load**
-- **File:** `src/app/api/crons/route.ts`
-- **Problem:** `fetch('http://localhost:18789/rpc', { method: 'POST', ... })` → gateway returns HTTP 404. The OpenClaw gateway does not expose `/rpc` as an HTTP endpoint.
-- **Evidence:** `curl -s http://localhost:18789/rpc -X POST -H 'Content-Type: application/json' -d '{"method":"cron.list","params":{"includeDisabled":true}}'` → `Not Found` (HTTP 404)
-- **Proof cron data exists:** `openclaw cron list --json` returns real jobs (at least `claude-code-memory-sync` and `daily-brief` confirmed running with healthy state)
-- **Fix options (pick one):**
-  - **Option A (recommended):** Shell out to `openclaw cron list --json` via `child_process.execSync` in the API route — simplest, guaranteed to work, same data
-  - **Option B:** Use the WebSocket RPC protocol from `GatewayBrowserClient` (complex, server-side WS client needed)
-- **Impact:** Feature is completely non-functional. Users see the error state: "Failed to load crons: Gateway returned 404"
-
 ### LOW
 
-**2. Type assertion `as CronJob[]` instead of runtime validation**
-- **File:** `src/app/api/crons/route.ts`, line: `return NextResponse.json({ jobs: data.result.jobs as CronJob[] })`
-- **Problem:** If the gateway response shape doesn't match `CronJob`, the cast silently passes bad data. Not blocking but worth a runtime check or Zod schema.
-- **Impact:** Low — defensive coding improvement, not a functional bug
+1. **Duplicate emoji maps** — `AGENT_EMOJIS` and `AGENT_EMOJI_MAP` in `UsageDashboard.tsx` are identical objects. One is used for "By Agent" section, the other via `agentEmoji()` for subagent cards. Should consolidate into a single constant. Non-blocking, cosmetic.
 
-**3. `formatRelativeTime` returns "just now" for future timestamps**
-- **File:** `SetupDashboard.tsx`
-- **Problem:** If `lastRunAtMs` is slightly in the future (clock skew), `diffMs` goes negative → `diffMin < 1` → shows "just now". Harmless edge case but worth noting.
-- **Impact:** Cosmetic only
+2. **In-progress runs silently uncounted** — When `outcome` is `null` (run still in progress), it falls through all outcome categorisation branches. The run is counted in `runs` total but not in any outcome bucket. Consider adding an `in_progress` category or counting nulls as pending. Non-blocking — numbers still add up for completed runs.
 
-## What's Good
+## Verdict: APPROVED ✅
 
-- ✅ **TypeScript:** `npx tsc --noEmit` — zero errors (clean)
-- ✅ **Component quality:** Loading spinner, error banner (red), empty state — all present and styled correctly
-- ✅ **Schedule formatting:** `every` (ms→min/hr), `cron` (expr + tz), `at` (Date → locale string) — all correct
-- ✅ **Relative time display:** Both past (`formatRelativeTime`) and future (`formatFutureTime`) — human-readable, not raw timestamps
-- ✅ **Left border colour:** `#10B981` (green) for enabled, `#475569` (grey) for disabled — correct
-- ✅ **No `any` types** in either file (one `as` cast noted above, but not `any`)
-- ✅ **No regressions:** `/api/setup` still returns all 7 files, file viewer unaffected, imports clean
-- ✅ **Build committed:** `d42f340` is HEAD, `.next/BUILD_ID` present
-- ✅ **Enabled/disabled badge:** Proper pill styling with semantic colours
-- ✅ **Payload preview:** Truncated to 120 chars with ellipsis — sensible
-- ✅ **Last run display:** Shows relative time + duration + status icon (✅/❌)
-- ✅ **Left panel integration:** Divider separates crons from files, consistent button styling
-
-## Verdict: REJECTED
-
-**Reason:** The single critical issue (API route hitting a non-existent HTTP endpoint) means the feature is 100% non-functional. The UI will always show the error state. Fix the data fetching approach (recommend shelling out to `openclaw cron list --json`) and resubmit. Everything else is solid.
+Clean implementation. TypeScript compiles with zero errors. API returns correct data from real `runs.json`. Agent name extraction works as intended. Missing file handled gracefully. Outcome mapping correctly handles the actual `"ok"` status values. No regressions to existing Usage panels. Live site loads. Two LOW-priority nits (duplicate map, in-progress uncounted) are non-blocking.

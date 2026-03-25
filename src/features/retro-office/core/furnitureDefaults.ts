@@ -13,7 +13,6 @@ import {
 import { nextUid } from "@/features/retro-office/core/geometry";
 import {
   hasAtmMigrationApplied,
-  hasGymRoomMigrationApplied,
   hasPhoneBoothMigrationApplied,
   hasQaLabMigrationApplied,
   hasSmsBoothMigrationApplied,
@@ -682,22 +681,23 @@ export const ensureOfficeGymRoom = (
     ];
   }
 
-  const hasGymEquipment = items.some((item) =>
-    [
-      "treadmill",
-      "weight_bench",
-      "dumbbell_rack",
-      "exercise_bike",
-      "punching_bag",
-      "rowing_machine",
-      "kettlebell_rack",
-      "yoga_mat",
-    ].includes(item.type),
+  // Strip any partial/orphaned gym equipment before adding the full room
+  const strippedItems = items.filter(
+    (item) =>
+      ![
+        "treadmill",
+        "weight_bench",
+        "dumbbell_rack",
+        "exercise_bike",
+        "punching_bag",
+        "rowing_machine",
+        "kettlebell_rack",
+        "yoga_mat",
+      ].includes(item.type),
   );
-  if (hasGymEquipment) return items;
-  if (hasGymRoomMigrationApplied()) return items;
+  // Always add full gym room (signature checks above already handle "already have full gym" case)
   return [
-    ...items,
+    ...strippedItems,
     ...DEFAULT_GYM_ITEMS.map((item) => ({ ...item, _uid: nextUid() })),
   ];
 };
