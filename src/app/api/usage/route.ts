@@ -3,6 +3,23 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
+// Anthropic published rates (per million tokens) — March 2026
+const PRICING: Record<string, { input: number; output: number; cacheRead: number }> = {
+  'claude-opus-4-6':   { input: 5.00,  output: 25.00, cacheRead: 0.50 },
+  'claude-sonnet-4-6': { input: 3.00,  output: 15.00, cacheRead: 0.30 },
+  'MiniMax-M2.7':      { input: 0.30,  output: 1.20,  cacheRead: 0.03 },
+  'MiniMax-M2.7-highspeed': { input: 0.30, output: 1.20, cacheRead: 0.03 },
+}
+
+function calculateCost(model: string, inputTokens: number, outputTokens: number, cacheReadTokens: number): number {
+  const rates = PRICING[model] || PRICING['claude-sonnet-4-6'] // default to Sonnet if unknown
+  return (
+    (inputTokens / 1_000_000) * rates.input +
+    (outputTokens / 1_000_000) * rates.output +
+    (cacheReadTokens / 1_000_000) * rates.cacheRead
+  )
+}
+
 interface UsageRecord {
   date: string
   agent: string
@@ -39,7 +56,12 @@ function parseJsonlFile(filePath: string, agentName: string): UsageRecord[] {
             cacheReadTokens: usage.cacheRead || 0,
             cacheWriteTokens: usage.cacheWrite || 0,
             totalTokens: usage.totalTokens || (usage.input || 0) + (usage.output || 0),
-            cost: usage.cost?.total || 0,
+            cost: calculateCost(
+              obj.message.model || 'unknown',
+              usage.input || 0,
+              usage.output || 0,
+              usage.cacheRead || 0,
+            ),
           })
         }
       } catch {

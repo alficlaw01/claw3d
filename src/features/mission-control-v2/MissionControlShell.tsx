@@ -1,16 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import KanbanBoard from './KanbanBoard'
 import UsageDashboard from './UsageDashboard'
 import OrgChart from './OrgChart'
 
-type MCView = 'tasks' | 'usage' | 'org'
+const SetupDashboard = dynamic(() => import('./SetupDashboard'), { ssr: false })
+
+type MCView = 'tasks' | 'usage' | 'org' | 'setup'
 
 const NAV_ITEMS: { id: MCView; icon: string; label: string }[] = [
   { id: 'tasks', icon: '📋', label: 'Tasks' },
   { id: 'usage', icon: '📊', label: 'Usage' },
   { id: 'org', icon: '👥', label: 'Org Chart' },
+  { id: 'setup', icon: '⚙️', label: 'Setup' },
 ]
 
 export default function MissionControlShell() {
@@ -100,6 +104,7 @@ export default function MissionControlShell() {
         {activeView === 'tasks' && <KanbanBoard />}
         {activeView === 'usage' && <UsageDashboard />}
         {activeView === 'org' && <OrgChart />}
+        {activeView === 'setup' && <SetupDashboard />}
       </main>
     </div>
   )

@@ -38,12 +38,12 @@ const SHOW_CONSOLE =
     : true
 
 export default function OfficePage() {
-  const [activeView, setActiveView] = useState<ActiveView>('office')
+  const [activeView, setActiveView] = useState<ActiveView>('mission-control')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'office' || stored === 'mission-control') {
+    if (stored === 'office' || stored === 'office') {
       setActiveView(stored)
     }
     setMounted(true)
@@ -89,24 +89,6 @@ export default function OfficePage() {
           }}
         >
           <button
-            onClick={() => handleToggle('office')}
-            style={{
-              padding: '5px 14px',
-              borderRadius: 6,
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontFamily: '"Segoe UI", "Segoe UI Semilight", sans-serif',
-              fontWeight: activeView === 'office' ? 500 : 400,
-              background: activeView === 'office' ? '#2D3F55' : 'transparent',
-              color: activeView === 'office' ? '#ffffff' : '#94A3B8',
-              transition: 'all 0.15s',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            🏢 Office
-          </button>
-          <button
             onClick={() => handleToggle('mission-control')}
             style={{
               padding: '5px 14px',
@@ -123,6 +105,24 @@ export default function OfficePage() {
             }}
           >
             📊 Mission Control
+          </button>
+          <button
+            onClick={() => handleToggle('office')}
+            style={{
+              padding: '5px 14px',
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontFamily: '"Segoe UI", "Segoe UI Semilight", sans-serif',
+              fontWeight: activeView === 'office' ? 500 : 400,
+              background: activeView === 'office' ? '#2D3F55' : 'transparent',
+              color: activeView === 'office' ? '#ffffff' : '#94A3B8',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🏢 Office
           </button>
         </div>
 

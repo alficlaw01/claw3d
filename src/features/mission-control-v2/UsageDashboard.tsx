@@ -101,7 +101,7 @@ export default function UsageDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
         {[
           { label: 'Total Tokens', value: fmt(data.totals.tokens), sub: 'all time' },
-          { label: 'Total Cost', value: fmtCost(data.totals.cost), sub: 'estimated' },
+          { label: 'Equivalent API Spend', value: fmtCost(data.totals.cost), sub: 'based on published rates' },
           { label: 'API Calls', value: data.totals.calls.toLocaleString(), sub: 'messages' },
         ].map(stat => (
           <div key={stat.label} style={{

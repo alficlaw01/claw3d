@@ -1,227 +1,132 @@
 'use client'
 
-interface Agent {
+import React from 'react'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Status = 'active' | 'standby' | 'tbd'
+
+interface NodeDef {
   emoji: string
   name: string
   role: string
   model: string
-  status: 'active' | 'standby' | 'tbd'
-  children?: Agent[]
+  status: Status
+  cx: number   // horizontal center
+  y: number    // top edge
+  compact?: boolean
 }
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const CARD_W = 160
+const CARD_H = 110
+const COMPACT_W = 100
+const COMPACT_H = 100
+const CANVAS_W = 1200
+const CANVAS_H = 860
 
 const MODEL_SHORT: Record<string, string> = {
   'claude-opus-4-6': 'Opus 4.6',
   'claude-sonnet-4-6': 'Sonnet 4.6',
-  'MiniMax-M2.7': 'MiniMax',
+  'MiniMax-M2.7': 'MiniMax M2.7',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  active: '#10B981',
+const STATUS_COLORS: Record<Status, string> = {
+  active:  '#10B981',
   standby: '#F59E0B',
-  tbd: '#475569',
+  tbd:     '#475569',
 }
 
-const CARD_WIDTH = 160
-const CARD_HEIGHT = 110
-const H_GAP = 20
-const V_GAP = 60
+// ─── Node positions ───────────────────────────────────────────────────────────
+//
+//  Layer 0 (y=0):   Jason
+//  Layer 1 (y=180): Alfi
+//  Layer 2 (y=360): Scout ──────── Judge   ← QA Gate (both review everything)
+//                      ╲   ╳   ╱
+//  Layer 3 (y=540): Nova         Forge     ← Pod leads
+//  Layer 4 (y=720): Hana builders  Bootstrap builders
 
-const ORG: Agent = {
-  emoji: '👔',
-  name: 'Jason',
-  role: 'CEO',
-  model: 'human',
-  status: 'active',
-  children: [
-    {
-      emoji: '🤝',
-      name: 'Alfi',
-      role: 'CTO / Orchestrator',
-      model: 'claude-opus-4-6',
-      status: 'active',
-      children: [
-        {
-          emoji: '🔍',
-          name: 'Scout',
-          role: 'Commercial Intelligence',
-          model: 'claude-opus-4-6',
-          status: 'standby',
-        },
-        {
-          emoji: '🌸',
-          name: 'Nova',
-          role: 'Project Lead — Hana',
-          model: 'claude-sonnet-4-6',
-          status: 'standby',
-          children: [
-            { emoji: '🐇', name: 'Benito', role: 'Backend Engineer', model: 'MiniMax-M2.7', status: 'standby' },
-            { emoji: '🌺', name: 'Bloom', role: 'Frontend / Mobile Engineer', model: 'MiniMax-M2.7', status: 'tbd' },
-            { emoji: '💓', name: 'Pulse', role: 'Matching Engine', model: 'MiniMax-M2.7', status: 'tbd' },
-            { emoji: '💘', name: 'Cupid', role: 'QA Reviewer', model: 'claude-opus-4-6', status: 'tbd' },
-          ],
-        },
-        {
-          emoji: '🗺️',
-          name: 'Atlas',
-          role: 'Project Lead — Flow',
-          model: 'claude-sonnet-4-6',
-          status: 'standby',
-          children: [
-            { emoji: '🐇', name: 'Benito', role: 'Backend Engineer', model: 'MiniMax-M2.7', status: 'standby' },
-            { emoji: '🎨', name: 'Pixel', role: 'Frontend Engineer', model: 'MiniMax-M2.7', status: 'active' },
-            { emoji: '⚖️', name: 'Judge', role: 'QA Reviewer', model: 'claude-opus-4-6', status: 'tbd' },
-          ],
-        },
-        {
-          emoji: '🔨',
-          name: 'Forge',
-          role: 'Bootstrap Squad Lead',
-          model: 'claude-sonnet-4-6',
-          status: 'standby',
-          children: [
-            { emoji: '✍️', name: 'Quill', role: 'Content Agent', model: 'MiniMax-M2.7', status: 'standby' },
-            { emoji: '📈', name: 'Chip', role: 'Paper Trader', model: 'MiniMax-M2.7', status: 'standby' },
-            { emoji: '🪙', name: 'Mint', role: 'Monetisation', model: 'MiniMax-M2.7', status: 'standby' },
-          ],
-        },
-      ],
-    },
-  ],
+const NODES: Record<string, NodeDef> = {
+  jason:  { cx: 650,  y: 0,   emoji: '👔', name: 'Jason',  role: 'CEO',                  model: 'human',             status: 'active'  },
+  alfi:   { cx: 650,  y: 180, emoji: '🤝', name: 'Alfi',   role: 'CTO / Orchestrator',   model: 'claude-opus-4-6',   status: 'active'  },
+  scout:  { cx: 350,  y: 360, emoji: '🔍', name: 'Scout',  role: 'QA Gate',              model: 'claude-opus-4-6',   status: 'standby' },
+  judge:  { cx: 950,  y: 360, emoji: '⚖️', name: 'Judge',  role: 'QA Gate',              model: 'claude-opus-4-6',   status: 'standby' },
+  nova:   { cx: 350,  y: 540, emoji: '🌸', name: 'Nova',   role: 'Project Lead — Hana',  model: 'claude-sonnet-4-6', status: 'standby' },
+  forge:  { cx: 950,  y: 540, emoji: '🔨', name: 'Forge',  role: 'Bootstrap Squad Lead', model: 'claude-opus-4-6',   status: 'standby' },
+  // Hana builders — centred under Nova (cx=350), 5 × 100px + 4 × 16px gap = 564px
+  benito: { cx: 118,  y: 720, emoji: '🐇', name: 'Benito', role: 'Backend',              model: 'MiniMax-M2.7', status: 'standby', compact: true },
+  bloom:  { cx: 234,  y: 720, emoji: '🌺', name: 'Bloom',  role: 'Mobile',               model: 'MiniMax-M2.7', status: 'tbd',     compact: true },
+  pixel:  { cx: 350,  y: 720, emoji: '🎨', name: 'Pixel',  role: 'Frontend',             model: 'MiniMax-M2.7', status: 'standby', compact: true },
+  pulse:  { cx: 466,  y: 720, emoji: '💓', name: 'Pulse',  role: 'Matching',             model: 'MiniMax-M2.7', status: 'tbd',     compact: true },
+  cupid:  { cx: 582,  y: 720, emoji: '💘', name: 'Cupid',  role: 'Engineer',             model: 'MiniMax-M2.7', status: 'tbd',     compact: true },
+  // Bootstrap builders — centred under Forge (cx=950), 3 × 100px + 2 × 16px gap = 332px
+  quill:  { cx: 834,  y: 720, emoji: '✍️', name: 'Quill',  role: 'Content',              model: 'MiniMax-M2.7', status: 'standby', compact: true },
+  chip:   { cx: 950,  y: 720, emoji: '📈', name: 'Chip',   role: 'Trading',              model: 'MiniMax-M2.7', status: 'standby', compact: true },
+  mint:   { cx: 1066, y: 720, emoji: '🪙', name: 'Mint',   role: 'Monetisation',         model: 'MiniMax-M2.7', status: 'standby', compact: true },
 }
 
-type LayoutNode = {
-  agent: Agent
-  x: number
-  y: number
-  width: number
-  height: number
-  children: LayoutNode[]
-}
+// ─── Edges (parent → child, top-down) ────────────────────────────────────────
+// Scout and Judge both review ALL work — cross-connections create the X pattern.
 
-function calcSubtreeWidth(agent: Agent): number {
-  if (!agent.children || agent.children.length === 0) return CARD_WIDTH
-  const childWidths = agent.children.map(calcSubtreeWidth)
-  const totalChildWidth = childWidths.reduce((a, b) => a + b, 0)
-  const totalGap = (agent.children.length - 1) * H_GAP
-  return Math.max(CARD_WIDTH, totalChildWidth + totalGap)
-}
+const EDGES: [string, string][] = [
+  ['jason',  'alfi'],
+  ['alfi',   'scout'],
+  ['alfi',   'judge'],
+  ['scout',  'nova'],   // straight down
+  ['scout',  'forge'],  // diagonal ╲
+  ['judge',  'nova'],   // diagonal ╱
+  ['judge',  'forge'],  // straight down
+  ['nova',   'benito'],
+  ['nova',   'bloom'],
+  ['nova',   'pixel'],
+  ['nova',   'pulse'],
+  ['nova',   'cupid'],
+  ['forge',  'quill'],
+  ['forge',  'chip'],
+  ['forge',  'mint'],
+]
 
-function calcSubtreeHeight(agent: Agent): number {
-  if (!agent.children || agent.children.length === 0) return CARD_HEIGHT
-  const maxChildH = Math.max(...agent.children.map(c => calcSubtreeHeight(c)))
-  return CARD_HEIGHT + V_GAP + maxChildH
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function layoutTree(agent: Agent, x: number, y: number): LayoutNode {
-  const width = calcSubtreeWidth(agent)
-  const height = calcSubtreeHeight(agent)
+function w(n: NodeDef) { return n.compact ? COMPACT_W : CARD_W }
+function h(n: NodeDef) { return n.compact ? COMPACT_H : CARD_H }
 
-  if (!agent.children || agent.children.length === 0) {
-    return { agent, x: x + width / 2, y, width, height, children: [] }
-  }
+// ─── AgentCard ────────────────────────────────────────────────────────────────
 
-  const childNodes: LayoutNode[] = []
-  const childY = y + CARD_HEIGHT + V_GAP
-  const totalChildWidth = agent.children.reduce((_, c) => calcSubtreeWidth(c), 0) + (agent.children.length - 1) * H_GAP
-  let curX = x + (width - totalChildWidth) / 2
-
-  for (const child of agent.children) {
-    const cw = calcSubtreeWidth(child)
-    childNodes.push(layoutTree(child, curX, childY))
-    curX += cw + H_GAP
-  }
-
-  return { agent, x: x + width / 2, y, width, height, children: childNodes }
-}
-
-function renderConnectors(node: LayoutNode, childNodes: LayoutNode[]): React.ReactNode[] {
-  if (!node.children || node.children.length === 0) return []
-
-  const lines: React.ReactNode[] = []
-  const parentCX = node.x
-  const parentCY = node.y + CARD_HEIGHT
-  const childTopCY = node.y + CARD_HEIGHT + V_GAP
-
-  // Draw vertical stem from parent bottom to elbow
-  lines.push(
-    <line
-      key={`${node.agent.name}-v`}
-      x1={parentCX} y1={parentCY}
-      x2={parentCX} y2={childTopCY}
-      stroke="#1E293B" strokeWidth={1}
-    />
-  )
-
-  if (node.children.length > 1) {
-    // Horizontal bar across all children
-    const minCX = Math.min(...node.children.map(c => c.x))
-    const maxCX = Math.max(...node.children.map(c => c.x))
-    lines.push(
-      <line
-        key={`${node.agent.name}-h`}
-        x1={minCX} y1={childTopCY}
-        x2={maxCX} y2={childTopCY}
-        stroke="#1E293B" strokeWidth={1}
-      />
-    )
-  }
-
-  // Vertical drops to each child
-  for (const child of node.children) {
-    lines.push(
-      <line
-        key={`${node.agent.name}-c-${child.agent.name}`}
-        x1={child.x} y1={childTopCY}
-        x2={child.x} y2={child.y}
-        stroke="#1E293B" strokeWidth={1}
-      />
-    )
-  }
-
-  for (const child of node.children) {
-    lines.push(...renderConnectors(child, node.children))
-  }
-
-  return lines
-}
-
-function AgentCard({ agent }: { agent: Agent }) {
-  const modelShort = MODEL_SHORT[agent.model] || agent.model
-  const statusColor = STATUS_COLORS[agent.status]
+function AgentCard({ node }: { node: NodeDef }) {
+  const modelShort = MODEL_SHORT[node.model] || node.model
+  const statusColor = STATUS_COLORS[node.status]
+  const compact = !!node.compact
 
   return (
     <div style={{
       position: 'absolute',
-      width: CARD_WIDTH,
+      left: node.cx - w(node) / 2,
+      top: node.y,
+      width: w(node),
+      height: h(node),
       background: '#1A2332',
       border: '1px solid #1E293B',
       borderRadius: 10,
-      padding: '12px 16px',
+      padding: compact ? '8px 10px' : '12px 16px',
       textAlign: 'center',
+      boxSizing: 'border-box',
     }}>
+      {/* Status dot */}
       <div style={{
-        position: 'absolute',
-        top: 10, right: 10,
-        width: 7, height: 7,
-        borderRadius: '50%',
+        position: 'absolute', top: 8, right: 8,
+        width: 6, height: 6, borderRadius: '50%',
         background: statusColor,
         boxShadow: `0 0 6px ${statusColor}`,
       }} />
-      <div style={{ fontSize: 24, marginBottom: 6 }}>{agent.emoji}</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>
-        {agent.name}
-      </div>
-      <div style={{ fontSize: 10, color: '#64748B', marginBottom: 6, lineHeight: 1.3 }}>
-        {agent.role}
-      </div>
-      {agent.model !== 'human' && (
+      <div style={{ fontSize: compact ? 18 : 24, marginBottom: compact ? 3 : 6 }}>{node.emoji}</div>
+      <div style={{ fontSize: compact ? 11 : 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{node.name}</div>
+      <div style={{ fontSize: compact ? 8 : 10, color: '#64748B', lineHeight: 1.3, marginBottom: compact ? 3 : 4 }}>{node.role}</div>
+      {node.model !== 'human' && (
         <div style={{
-          display: 'inline-block',
-          fontSize: 9,
-          padding: '2px 7px',
-          borderRadius: 4,
-          background: '#0F1724',
-          color: '#94A3B8',
+          display: 'inline-block', fontSize: 9, padding: '2px 7px',
+          borderRadius: 4, background: '#0F1724', color: '#94A3B8',
           border: '1px solid #1E293B',
         }}>
           {modelShort}
@@ -231,24 +136,20 @@ function AgentCard({ agent }: { agent: Agent }) {
   )
 }
 
+// ─── OrgChart ─────────────────────────────────────────────────────────────────
+
 export default function OrgChart() {
-  const root = layoutTree(ORG, 0, 0)
-  const svgWidth = root.width + 80
-  const svgHeight = root.height + 40
-
-  const connectors = renderConnectors(root, [])
-
   return (
     <div style={{ padding: 24, height: '100%', overflow: 'auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', marginBottom: 4 }}>👥 Org Chart</h1>
-        <p style={{ fontSize: 13, color: '#64748B' }}>Agent task force hierarchy</p>
+        <p style={{ fontSize: 13, color: '#64748B' }}>Agent task force — updated 2026-03-25</p>
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
-        {Object.entries(STATUS_COLORS).map(([status, color]) => (
+      <div style={{ display: 'flex', gap: 20, marginBottom: 28 }}>
+        {(Object.entries(STATUS_COLORS) as [Status, string][]).map(([status, color]) => (
           <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748B' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -256,33 +157,36 @@ export default function OrgChart() {
         ))}
       </div>
 
-      {/* Tree */}
+      {/* Chart canvas */}
       <div style={{ overflowX: 'auto', paddingBottom: 24 }}>
-        <div style={{ position: 'relative', width: svgWidth, height: svgHeight, margin: '0 auto' }}>
+        <div style={{ position: 'relative', width: CANVAS_W, height: CANVAS_H }}>
+
           {/* SVG connector lines */}
           <svg
-            width={svgWidth}
-            height={svgHeight}
+            width={CANVAS_W}
+            height={CANVAS_H}
             style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
           >
-            {connectors}
+            {EDGES.map(([fromId, toId]) => {
+              const from = NODES[fromId]
+              const to   = NODES[toId]
+              return (
+                <line
+                  key={`${fromId}→${toId}`}
+                  x1={from.cx}       y1={from.y + h(from)}
+                  x2={to.cx}         y2={to.y}
+                  stroke="rgba(255,255,255,0.3)"
+                  strokeWidth={1.5}
+                />
+              )
+            })}
           </svg>
 
-          {/* Agent cards — positioned absolutely */}
-          {function renderCards(node: LayoutNode): React.ReactNode {
-            return (
-              <>
-                <div style={{
-                  position: 'absolute',
-                  left: node.x - CARD_WIDTH / 2,
-                  top: node.y,
-                }}>
-                  <AgentCard agent={node.agent} />
-                </div>
-                {node.children.map(child => renderCards(child))}
-              </>
-            )
-          }(root)}
+          {/* Agent cards */}
+          {Object.values(NODES).map(node => (
+            <AgentCard key={node.name} node={node} />
+          ))}
+
         </div>
       </div>
     </div>
