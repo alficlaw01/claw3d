@@ -15,9 +15,9 @@ export type CameraPreset = {
 
 export const CAMERA_PRESETS = {
   overview: {
-    pos: [12, 12, 12],
-    target: [0, 0, 0],
-    zoom: 55,
+    pos: [14, 14, 12],
+    target: [8, 0, 0],
+    zoom: 45,
   },
   frontDesk: {
     pos: [-2, 8, 4],
@@ -28,6 +28,11 @@ export const CAMERA_PRESETS = {
     pos: [7, 7, -5],
     target: [5, 0, -3],
     zoom: 62,
+  },
+  gym: {
+    pos: [22, 12, 12],
+    target: [20, 0, 0],
+    zoom: 65,
   },
 } satisfies Record<string, CameraPreset>;
 

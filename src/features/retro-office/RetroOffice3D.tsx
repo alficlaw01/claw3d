@@ -7,6 +7,7 @@ import {
   Maximize,
   Monitor,
   Armchair,
+  Dumbbell,
   Settings2,
   Camera,
   UserPlus,
@@ -4980,6 +4981,11 @@ export function RetroOffice3D({
                   title: "Front desk",
                 },
                 { key: "lounge", icon: <Armchair size={12} />, title: "Lounge" },
+                {
+                  key: "gym",
+                  icon: <Dumbbell size={12} />,
+                  title: "Gym",
+                },
               ] as const
             ).map(({ key, icon, title }) => (
               <button
