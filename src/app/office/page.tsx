@@ -1,103 +1,186 @@
-"use client";
-import { Suspense, useEffect, useState } from "react";
-import { AgentStoreProvider } from "@/features/agents/state/store";
-import { OfficeScreen } from "@/features/office/screens/OfficeScreen";
-import { WorkModePanel } from "@/features/work-mode/WorkModePanel";
-import { TopBar } from "@/components/TopBar";
-import { OfficeSidebar, OfficeView } from "@/features/office/components/OfficeSidebar";
-import { FleetView } from "@/features/office/views/FleetView";
-import { TasksView } from "@/features/office/views/TasksView";
-import { UsageView } from "@/features/office/views/UsageView";
+'use client'
 
-const ENABLED_RE = /^(1|true|yes|on)$/i;
+import { Suspense, useState, useEffect } from 'react'
+import { AgentStoreProvider } from '@/features/agents/state/store'
+import { OfficeScreen } from '@/features/office/screens/OfficeScreen'
+import dynamic from 'next/dynamic'
 
-const readDebugFlag = (value: string | undefined): boolean => {
-  const normalized = (value ?? "").trim();
-  if (!normalized) return true;
-  return ENABLED_RE.test(normalized);
-};
+const MissionControlShell = dynamic(
+  () => import('@/features/mission-control-v2/MissionControlShell'),
+  { ssr: false }
+)
 
-const DEFAULT_PANELS = ["alfi", "scout", "benito", "pixel", "forge"];
+type ActiveView = 'office' | 'mission-control'
+
+const STORAGE_KEY = 'office-active-view'
+
+function OfficeLoadingFallback() {
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center bg-background"
+      aria-label="Loading office"
+      role="status"
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+        <p className="font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
+          Loading…
+        </p>
+      </div>
+    </div>
+  )
+}
+
+const SHOW_CONSOLE =
+  typeof process !== 'undefined'
+    ? /^(1|true|yes|on)$/i.test((process.env.DEBUG ?? '').trim()) ||
+      (process.env.DEBUG ?? '').trim() === ''
+    : true
 
 export default function OfficePage() {
-  const showOpenClawConsole = readDebugFlag(process.env.DEBUG);
-
-  const [workMode, setWorkMode] = useState(true);
-  const [panelAgents, setPanelAgents] = useState<string[]>(DEFAULT_PANELS);
-  const [topHeight, setTopHeight] = useState(60);
-  const [hydrated, setHydrated] = useState(false);
-  const [officeView, setOfficeView] = useState<OfficeView>("office");
+  const [activeView, setActiveView] = useState<ActiveView>('office')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem("claw3d-view-mode");
-    if (stored === "office") setWorkMode(false);
-    setHydrated(true);
-  }, []);
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === 'office' || stored === 'mission-control') {
+      setActiveView(stored)
+    }
+    setMounted(true)
+  }, [])
 
-  const switchToOffice = () => {
-    setWorkMode(false);
-    localStorage.setItem("claw3d-view-mode", "office");
-  };
-
-  const switchToWork = () => {
-    setWorkMode(true);
-    localStorage.setItem("claw3d-view-mode", "work");
-  };
-
-  const handleAgentChange = (panelIndex: number) => (newAgentId: string) => {
-    setPanelAgents(prev => {
-      const next = [...prev];
-      next[panelIndex] = newAgentId;
-      return next;
-    });
-  };
-
-  if (!hydrated) return null;
-
-  // ── Work Mode ───────────────────────────────────────────────────────────────
-  if (workMode) {
-    return (
-      <AgentStoreProvider>
-        <WorkModePanel
-          panelAgents={panelAgents}
-          onPanelAgentChange={handleAgentChange}
-          topHeight={topHeight}
-          setTopHeight={setTopHeight}
-          onSwitchToOffice={switchToOffice}
-        />
-      </AgentStoreProvider>
-    );
+  const handleToggle = (view: ActiveView) => {
+    setActiveView(view)
+    localStorage.setItem(STORAGE_KEY, view)
   }
 
-  // ── Office Mode ─────────────────────────────────────────────────────────────
   return (
-    <AgentStoreProvider>
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0F1724", overflow: "hidden" }}>
-        {/* Top Bar */}
-        <TopBar
-          workModeActive={false}
-          onSwitchToWork={switchToWork}
-          onSwitchToOffice={switchToOffice}
-        />
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        background: '#0F1724',
+        fontFamily: '"Segoe UI", "Segoe UI Semilight", sans-serif',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Top bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 16px',
+          background: '#0F1724',
+          borderBottom: '1px solid #1E293B',
+          flexShrink: 0,
+          height: 48,
+        }}
+      >
+        {/* Toggle pills */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 4,
+            background: '#1A2332',
+            borderRadius: 8,
+            padding: 3,
+          }}
+        >
+          <button
+            onClick={() => handleToggle('office')}
+            style={{
+              padding: '5px 14px',
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontFamily: '"Segoe UI", "Segoe UI Semilight", sans-serif',
+              fontWeight: activeView === 'office' ? 500 : 400,
+              background: activeView === 'office' ? '#2D3F55' : 'transparent',
+              color: activeView === 'office' ? '#ffffff' : '#94A3B8',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🏢 Office
+          </button>
+          <button
+            onClick={() => handleToggle('mission-control')}
+            style={{
+              padding: '5px 14px',
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontFamily: '"Segoe UI", "Segoe UI Semilight", sans-serif',
+              fontWeight: activeView === 'mission-control' ? 500 : 400,
+              background: activeView === 'mission-control' ? '#2D3F55' : 'transparent',
+              color: activeView === 'mission-control' ? '#ffffff' : '#94A3B8',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            📊 Mission Control
+          </button>
+        </div>
 
-        {/* Body: content + sidebar */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          {/* Main content area */}
-          <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-            {officeView === "office" && (
-              <Suspense fallback={null}>
-                <OfficeScreen showOpenClawConsole={false} />
-              </Suspense>
-            )}
-            {officeView === "fleet" && <FleetView />}
-            {officeView === "tasks" && <TasksView />}
-            {officeView === "usage" && <UsageView />}
-          </div>
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
 
-          {/* Right sidebar */}
-          <OfficeSidebar activeView={officeView} onViewChange={setOfficeView} />
+        {/* Status dot */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            color: '#64748B',
+            fontFamily: '"Segoe UI", "Segoe UI Semilight", sans-serif',
+          }}
+        >
+          <div
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: '#10B981',
+              boxShadow: '0 0 6px #10B981',
+            }}
+          />
+          Systems Online
         </div>
       </div>
-    </AgentStoreProvider>
-  );
+
+      {/* Content area */}
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {/* Office view */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: activeView === 'office' ? 'block' : 'none',
+          }}
+        >
+          <AgentStoreProvider>
+            <Suspense fallback={<OfficeLoadingFallback />}>
+              <OfficeScreen showOpenClawConsole={SHOW_CONSOLE} />
+            </Suspense>
+          </AgentStoreProvider>
+        </div>
+
+        {/* Mission Control view */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: activeView === 'mission-control' ? 'block' : 'none',
+          }}
+        >
+          {mounted && <MissionControlShell />}
+        </div>
+      </div>
+    </div>
+  )
 }

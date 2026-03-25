@@ -1,200 +1,146 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import readline from "readline";
-import os from "os";
+import { NextResponse } from 'next/server'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
-interface UsageEntry {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  totalTokens: number;
-  cost?: {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheWrite: number;
-    total: number;
-  };
+interface UsageRecord {
+  date: string
+  agent: string
+  model: string
+  provider: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  totalTokens: number
+  cost: number
 }
 
-interface DayBucket {
-  tokens: number;
-  cost: number;
-}
-
-interface ModelBucket {
-  tokens: number;
-  cost: number;
-}
-
-interface AgentBucket {
-  tokens: number;
-  cost: number;
-}
-
-// Map model IDs to friendly names
-function mapModel(modelId: string): string {
-  if (!modelId) return "Unknown";
-  const m = modelId.toLowerCase();
-  if (m.includes("opus")) return "Claude Opus 4.6";
-  if (m.includes("sonnet")) return "Claude Sonnet 4.6";
-  if (m.includes("minimax") || m.includes("m2.7") || m.includes("mini")) return "MiniMax M2.7";
-  return modelId;
-}
-
-// Map agent session dir name to friendly name
-function mapAgent(agentName: string): { name: string; emoji: string } {
-  const map: Record<string, { name: string; emoji: string }> = {
-    main:   { name: "Alfi",   emoji: "🤝" },
-    benito: { name: "Benito", emoji: "🐇" },
-    scout:  { name: "Scout",  emoji: "🔍" },
-    nova:   { name: "Nova",   emoji: "🌸" },
-    atlas:  { name: "Atlas",  emoji: "🗺️" },
-    bloom:  { name: "Bloom",  emoji: "🌺" },
-    pixel:  { name: "Pixel",  emoji: "🎨" },
-    pulse:  { name: "Pulse",  emoji: "💓" },
-    cupid:  { name: "Cupid",  emoji: "💘" },
-    judge:  { name: "Judge",  emoji: "⚖️" },
-    forge:  { name: "Forge",  emoji: "🔨" },
-    quill:  { name: "Quill",  emoji: "✍️" },
-    chip:   { name: "Chip",   emoji: "📈" },
-    mint:   { name: "Mint",   emoji: "🪙" },
-  };
-  return map[agentName] ?? { name: agentName, emoji: "🤖" };
-}
-
-async function readJsonl(filePath: string): Promise<Record<string, unknown>[]> {
-  const results: Record<string, unknown>[] = [];
-  if (!fs.existsSync(filePath)) return results;
-  const rl = readline.createInterface({
-    input: fs.createReadStream(filePath),
-    crlfDelay: Infinity,
-  });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    try {
-      results.push(JSON.parse(line));
-    } catch {
-      // skip malformed lines
+function parseJsonlFile(filePath: string, agentName: string): UsageRecord[] {
+  const records: UsageRecord[] = []
+  try {
+    const content = fs.readFileSync(filePath, 'utf8')
+    const lines = content.split('\n').filter(l => l.trim())
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line)
+        if (obj.type === 'message' && obj.message?.usage) {
+          const usage = obj.message.usage
+          const date = obj.timestamp
+            ? new Date(obj.timestamp).toISOString().split('T')[0]
+            : new Date(parseInt(obj.id || '0', 16) || Date.now()).toISOString().split('T')[0]
+          records.push({
+            date,
+            agent: agentName,
+            model: obj.message.model || 'unknown',
+            provider: obj.message.provider || 'unknown',
+            inputTokens: usage.input || 0,
+            outputTokens: usage.output || 0,
+            cacheReadTokens: usage.cacheRead || 0,
+            cacheWriteTokens: usage.cacheWrite || 0,
+            totalTokens: usage.totalTokens || (usage.input || 0) + (usage.output || 0),
+            cost: usage.cost?.total || 0,
+          })
+        }
+      } catch {
+        // skip malformed lines
+      }
     }
+  } catch {
+    // skip unreadable files
   }
-  return results;
+  return records
+}
+
+function getLast7Days(): string[] {
+  const days: string[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    days.push(d.toISOString().split('T')[0])
+  }
+  return days
 }
 
 export async function GET() {
-  const agentsDir = path.join(os.homedir(), ".openclaw", "agents");
+  const agentsDir = path.join(os.homedir(), '.openclaw', 'agents')
+  const allRecords: UsageRecord[] = []
 
-  // Last 7 days buckets
-  const now = Date.now();
-  const MS_PER_DAY = 86400000;
-  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const days: { label: string; date: Date; tokens: number; cost: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now - i * MS_PER_DAY);
-    days.push({ label: DAY_LABELS[d.getDay()], date: d, tokens: 0, cost: 0 });
-  }
+  try {
+    const agents = fs.readdirSync(agentsDir).filter(a => {
+      try {
+        return fs.statSync(path.join(agentsDir, a)).isDirectory()
+      } catch { return false }
+    })
 
-  const modelBuckets: Record<string, ModelBucket> = {};
-  const agentBuckets: Record<string, AgentBucket & { emoji: string; name: string }> = {};
-  let totalCost = 0;
-  let totalTokens = 0;
-
-  if (!fs.existsSync(agentsDir)) {
-    return NextResponse.json({ days, modelBreakdown: [], agentBreakdown: [], totalCost: 0, totalTokens: 0 });
-  }
-
-  const agentNames = fs.readdirSync(agentsDir).filter(name => {
-    const p = path.join(agentsDir, name);
-    return fs.statSync(p).isDirectory();
-  });
-
-  for (const agentName of agentNames) {
-    const sessionsDir = path.join(agentsDir, agentName, "sessions");
-    if (!fs.existsSync(sessionsDir)) continue;
-
-    const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith(".jsonl"));
-    const { name: friendlyName, emoji } = mapAgent(agentName);
-
-    if (!agentBuckets[agentName]) {
-      agentBuckets[agentName] = { tokens: 0, cost: 0, emoji, name: friendlyName };
-    }
-
-    for (const file of files) {
-      const filePath = path.join(sessionsDir, file);
-      const records = await readJsonl(filePath);
-
-      for (const rec of records) {
-        if (rec.type !== "message") continue;
-        const msg = rec.message as { role?: string; usage?: UsageEntry; model?: string } | undefined;
-        if (!msg || msg.role !== "assistant") continue;
-        const usage = msg.usage;
-        if (!usage || !usage.totalTokens) continue;
-
-        const ts = typeof rec.timestamp === "string" ? new Date(rec.timestamp) : null;
-        if (!ts) continue;
-        const tsTime = ts.getTime();
-
-        // Find which day bucket
-        const dayIdx = days.findIndex((d, idx) => {
-          const start = new Date(d.date).setHours(0, 0, 0, 0);
-          const end = new Date(d.date).setHours(23, 59, 59, 999);
-          return tsTime >= start && tsTime <= end;
-        });
-
-        const tokens = usage.totalTokens;
-        const cost = usage.cost?.total ?? 0;
-
-        if (dayIdx >= 0) {
-          days[dayIdx].tokens += tokens;
-          days[dayIdx].cost += cost;
+    for (const agent of agents) {
+      const sessionsDir = path.join(agentsDir, agent, 'sessions')
+      try {
+        const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl'))
+        for (const file of files) {
+          const records = parseJsonlFile(path.join(sessionsDir, file), agent)
+          allRecords.push(...records)
         }
-
-        // Model breakdown
-        const modelKey = mapModel(msg.model ?? "");
-        if (!modelBuckets[modelKey]) modelBuckets[modelKey] = { tokens: 0, cost: 0 };
-        modelBuckets[modelKey].tokens += tokens;
-        modelBuckets[modelKey].cost += cost;
-
-        // Agent breakdown
-        agentBuckets[agentName].tokens += tokens;
-        agentBuckets[agentName].cost += cost;
-
-        totalTokens += tokens;
-        totalCost += cost;
+      } catch {
+        // no sessions dir
       }
     }
+  } catch {
+    // no agents dir
   }
 
-  // Build sorted model breakdown
-  const modelBreakdown = Object.entries(modelBuckets)
-    .map(([label, b]) => ({
-      label,
-      tokens: b.tokens,
-      cost: b.cost,
-      pct: totalTokens > 0 ? Math.round((b.tokens / totalTokens) * 100) : 0,
-    }))
-    .sort((a, b) => b.tokens - a.tokens);
+  const last7Days = getLast7Days()
 
-  // Build sorted agent breakdown
-  const agentBreakdown = Object.values(agentBuckets)
-    .map(b => ({
-      emoji: b.emoji,
-      name: b.name,
-      tokens: b.tokens,
-      cost: b.cost,
-      pct: totalTokens > 0 ? Math.round((b.tokens / totalTokens) * 100) : 0,
-    }))
-    .filter(a => a.tokens > 0)
+  // Daily breakdown
+  const dailyMap: Record<string, { inputTokens: number; outputTokens: number; cost: number; totalTokens: number }> = {}
+  for (const day of last7Days) {
+    dailyMap[day] = { inputTokens: 0, outputTokens: 0, cost: 0, totalTokens: 0 }
+  }
+  for (const r of allRecords) {
+    if (dailyMap[r.date]) {
+      dailyMap[r.date].inputTokens += r.inputTokens
+      dailyMap[r.date].outputTokens += r.outputTokens
+      dailyMap[r.date].totalTokens += r.totalTokens
+      dailyMap[r.date].cost += r.cost
+    }
+  }
+  const daily = last7Days.map(date => ({ date, ...dailyMap[date] }))
+
+  // Model breakdown
+  const modelMap: Record<string, { tokens: number; cost: number; calls: number }> = {}
+  for (const r of allRecords) {
+    const key = r.model || 'unknown'
+    if (!modelMap[key]) modelMap[key] = { tokens: 0, cost: 0, calls: 0 }
+    modelMap[key].tokens += r.totalTokens
+    modelMap[key].cost += r.cost
+    modelMap[key].calls++
+  }
+  const byModel = Object.entries(modelMap)
+    .map(([model, data]) => ({ model, ...data }))
     .sort((a, b) => b.tokens - a.tokens)
-    .slice(0, 8);
+
+  // Agent breakdown
+  const agentMap: Record<string, { tokens: number; cost: number; calls: number }> = {}
+  for (const r of allRecords) {
+    const key = r.agent || 'unknown'
+    if (!agentMap[key]) agentMap[key] = { tokens: 0, cost: 0, calls: 0 }
+    agentMap[key].tokens += r.totalTokens
+    agentMap[key].cost += r.cost
+    agentMap[key].calls++
+  }
+  const byAgent = Object.entries(agentMap)
+    .map(([agent, data]) => ({ agent, ...data }))
+    .sort((a, b) => b.tokens - a.tokens)
+
+  // Totals
+  const totalTokens = allRecords.reduce((s, r) => s + r.totalTokens, 0)
+  const totalCost = allRecords.reduce((s, r) => s + r.cost, 0)
+  const totalCalls = allRecords.length
 
   return NextResponse.json({
-    days: days.map(d => ({ day: d.label, tokens: d.tokens, cost: d.cost })),
-    modelBreakdown,
-    agentBreakdown,
-    totalCost,
-    totalTokens,
-  });
+    daily,
+    byModel,
+    byAgent,
+    totals: { tokens: totalTokens, cost: totalCost, calls: totalCalls },
+  })
 }
