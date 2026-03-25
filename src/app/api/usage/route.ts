@@ -33,6 +33,48 @@ interface UsageRecord {
   cost: number
 }
 
+interface SubagentUsage {
+  agent: string
+  model: string
+  runs: number
+  totalDurationMs: number
+  lastRunAt: string
+  lastLabel: string
+  outcome: {
+    completed: number
+    timed_out: number
+    error: number
+  }
+}
+
+// Extract agent name: first hyphen-delimited segment
+// "pixel-setup-tab" → "pixel", "judge-mc-v2" → "judge", "benito-hana-backend" → "benito"
+function extractAgentName(label: string): string {
+  return label.split('-')[0] ?? label
+}
+
+function readRunsJson(): Array<{label: string; model: string; startedAt: number; endedAt: number | null; outcome: {status: string} | null}> {
+  const runsPath = path.join(os.homedir(), '.openclaw', 'subagents', 'runs.json')
+  try {
+    const content = fs.readFileSync(runsPath, 'utf8')
+    const data = JSON.parse(content)
+    const runs = data.runs as Record<string, unknown> | undefined
+    if (!runs || typeof runs !== 'object') return []
+    return Object.values(runs).map((r) => {
+      const run = r as Record<string, unknown>
+      return {
+        label: String(run.label ?? ''),
+        model: String(run.model ?? ''),
+        startedAt: typeof run.startedAt === 'number' ? run.startedAt : 0,
+        endedAt: typeof run.endedAt === 'number' ? run.endedAt : null,
+        outcome: run.outcome as {status: string} | null,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 function parseJsonlFile(filePath: string, agentName: string): UsageRecord[] {
   const records: UsageRecord[] = []
   try {
@@ -159,10 +201,84 @@ export async function GET() {
   const totalCost = allRecords.reduce((s, r) => s + r.cost, 0)
   const totalCalls = allRecords.length
 
+  // ── Subagent attribution from runs.json ────────────────────────────────────
+  const runs = readRunsJson()
+
+  // Group by normalised agent name
+  const subagentMap: Record<string, {
+    agent: string
+    model: string
+    runs: number
+    totalDurationMs: number
+    lastRunMs: number
+    lastLabel: string
+    outcome: { completed: number; timed_out: number; error: number }
+  }> = {}
+
+  let totalSubagentRuns = 0
+  let totalSubagentDurationMs = 0
+
+  for (const run of runs) {
+    const agent = extractAgentName(run.label) || 'unknown'
+    const model = run.model || 'unknown'
+    const durationMs = (run.endedAt && run.startedAt)
+      ? run.endedAt - run.startedAt
+      : 0
+
+    if (!subagentMap[agent]) {
+      subagentMap[agent] = {
+        agent,
+        model,
+        runs: 0,
+        totalDurationMs: 0,
+        lastRunMs: 0,
+        lastLabel: run.label,
+        outcome: { completed: 0, timed_out: 0, error: 0 },
+      }
+    }
+
+    // Update model if a later run used a different model (keep the most recent)
+    subagentMap[agent].model = model
+    subagentMap[agent].runs++
+    subagentMap[agent].totalDurationMs += durationMs
+
+    const runMs = run.startedAt || 0
+    if (runMs > subagentMap[agent].lastRunMs) {
+      subagentMap[agent].lastRunMs = runMs
+      subagentMap[agent].lastLabel = run.label
+    }
+
+    // Categorise outcome
+    const status = run.outcome?.status ?? 'unknown'
+    if (status === 'ok' || status === 'completed') {
+      subagentMap[agent].outcome.completed++
+    } else if (status === 'timed_out') {
+      subagentMap[agent].outcome.timed_out++
+    } else if (status === 'error') {
+      subagentMap[agent].outcome.error++
+    }
+  }
+
+  totalSubagentRuns = Object.values(subagentMap).reduce((s, a) => s + a.runs, 0)
+  totalSubagentDurationMs = Object.values(subagentMap).reduce((s, a) => s + a.totalDurationMs, 0)
+
+  const bySubagent: SubagentUsage[] = Object.values(subagentMap)
+    .map(a => ({
+      agent: a.agent,
+      model: a.model,
+      runs: a.runs,
+      totalDurationMs: a.totalDurationMs,
+      lastRunAt: a.lastRunMs ? new Date(a.lastRunMs).toISOString() : '',
+      lastLabel: a.lastLabel,
+      outcome: a.outcome,
+    }))
+    .sort((a, b) => b.runs - a.runs)
+
   return NextResponse.json({
     daily,
     byModel,
     byAgent,
-    totals: { tokens: totalTokens, cost: totalCost, calls: totalCalls },
+    bySubagent,
+    totals: { tokens: totalTokens, cost: totalCost, calls: totalCalls, subagentRuns: totalSubagentRuns, subagentDurationMs: totalSubagentDurationMs },
   })
 }

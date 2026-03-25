@@ -1,52 +1,55 @@
-# Judge QA Review — Setup Tab
+# Judge QA Review — Crons Section in Setup Tab
 
 Date: 2026-03-25
-Verdict: **APPROVED** ✅
+Verdict: **REJECTED**
 
 ## Summary
 
-New Setup tab (⚙️) added to Mission Control sidebar. Two-panel layout: left file list, right content viewer. API reads 7 `.md` config files from the OpenClaw workspace and returns them with metadata. Clean, functional, no issues found.
+The Crons section UI is well-built — clean card design, proper loading/error/empty states, correct schedule formatting, relative timestamps, green/grey left borders. TypeScript compiles with zero new errors. The component code is solid.
 
-## Checks Performed
-
-| Check | Result |
-|-------|--------|
-| `npx tsc --noEmit` | ✅ Zero errors |
-| `curl /api/setup` | ✅ All 7 files returned with content + lastModified timestamps |
-| `/office` loads (200) | ✅ No regression |
-| Existing tabs (Tasks, Usage, Org) | ✅ Imports intact, no breakage |
-| Component quality | ✅ See details below |
-| Content accuracy | ✅ All 7 file paths exist and resolve correctly |
-| Layout | ✅ Two-panel flex layout, overflow handled |
-
-## Component Quality — SetupDashboard.tsx
-
-- **Loading state:** ✅ Present — shows "Loading setup files..." centered
-- **Error handling:** ✅ `.catch()` on fetch sets `loading=false` (graceful degradation — no crash)
-- **TypeScript:** ✅ Proper `SetupFile` interface, no `any` types
-- **SSR:** ✅ Loaded via `dynamic(() => import(...), { ssr: false })` in MissionControlShell — correct for a component that fetches client-side on mount
-- **No `any` types:** ✅ Confirmed
-
-## API Quality — route.ts
-
-- Reads from correct absolute paths under `/Users/alficlaw/.openclaw/workspace/`
-- All 7 files verified to exist on disk
-- `lastModified` via `fs.statSync` — present for all files
-- Graceful fallback: missing files return `"(file not found)"` with `null` timestamp
-- Uses synchronous `fs` — acceptable for 7 small files, no perf concern
+**However, the API route is fundamentally broken.** The gateway at `localhost:18789` does **not** expose an HTTP `/rpc` endpoint. It returns 404 for all HTTP POST requests to `/rpc`. The gateway uses WebSocket-based RPC (as seen in `GatewayBrowserClient.ts`), not HTTP REST. This means the cron data can never be fetched — the feature is non-functional in production.
 
 ## Issues Found
 
-### MEDIUM
+### CRITICAL
 
-1. **Error state not shown to user** — if the API fetch fails, `loading` goes to `false` but `files` stays empty, so the user sees an empty left panel with no explanation. Consider showing an error message. *Non-blocking — the API works and this is an edge case.*
+**1. API route targets non-existent HTTP endpoint — crons will never load**
+- **File:** `src/app/api/crons/route.ts`
+- **Problem:** `fetch('http://localhost:18789/rpc', { method: 'POST', ... })` → gateway returns HTTP 404. The OpenClaw gateway does not expose `/rpc` as an HTTP endpoint.
+- **Evidence:** `curl -s http://localhost:18789/rpc -X POST -H 'Content-Type: application/json' -d '{"method":"cron.list","params":{"includeDisabled":true}}'` → `Not Found` (HTTP 404)
+- **Proof cron data exists:** `openclaw cron list --json` returns real jobs (at least `claude-code-memory-sync` and `daily-brief` confirmed running with healthy state)
+- **Fix options (pick one):**
+  - **Option A (recommended):** Shell out to `openclaw cron list --json` via `child_process.execSync` in the API route — simplest, guaranteed to work, same data
+  - **Option B:** Use the WebSocket RPC protocol from `GatewayBrowserClient` (complex, server-side WS client needed)
+- **Impact:** Feature is completely non-functional. Users see the error state: "Failed to load crons: Gateway returned 404"
 
 ### LOW
 
-2. **Left panel width (160px) may feel narrow** for descriptions on some files — descriptions wrap fine via `whiteSpace: 'normal'` but could feel cramped. Cosmetic only.
+**2. Type assertion `as CronJob[]` instead of runtime validation**
+- **File:** `src/app/api/crons/route.ts`, line: `return NextResponse.json({ jobs: data.result.jobs as CronJob[] })`
+- **Problem:** If the gateway response shape doesn't match `CronJob`, the cast silently passes bad data. Not blocking but worth a runtime check or Zod schema.
+- **Impact:** Low — defensive coding improvement, not a functional bug
 
-3. **No refresh mechanism** — if a file is edited externally, the user must reload the page to see changes. Acceptable for v1.
+**3. `formatRelativeTime` returns "just now" for future timestamps**
+- **File:** `SetupDashboard.tsx`
+- **Problem:** If `lastRunAtMs` is slightly in the future (clock skew), `diffMs` goes negative → `diffMin < 1` → shows "just now". Harmless edge case but worth noting.
+- **Impact:** Cosmetic only
 
-## Verdict: APPROVED ✅
+## What's Good
 
-Clean build, zero TS errors, API returns correct data for all 7 files, no regressions on existing tabs, proper loading/error handling, good SSR strategy with dynamic import. The medium issue (no visible error state on fetch failure) is non-blocking — the happy path works correctly and the edge case degrades gracefully rather than crashing. Ship it.
+- ✅ **TypeScript:** `npx tsc --noEmit` — zero errors (clean)
+- ✅ **Component quality:** Loading spinner, error banner (red), empty state — all present and styled correctly
+- ✅ **Schedule formatting:** `every` (ms→min/hr), `cron` (expr + tz), `at` (Date → locale string) — all correct
+- ✅ **Relative time display:** Both past (`formatRelativeTime`) and future (`formatFutureTime`) — human-readable, not raw timestamps
+- ✅ **Left border colour:** `#10B981` (green) for enabled, `#475569` (grey) for disabled — correct
+- ✅ **No `any` types** in either file (one `as` cast noted above, but not `any`)
+- ✅ **No regressions:** `/api/setup` still returns all 7 files, file viewer unaffected, imports clean
+- ✅ **Build committed:** `d42f340` is HEAD, `.next/BUILD_ID` present
+- ✅ **Enabled/disabled badge:** Proper pill styling with semantic colours
+- ✅ **Payload preview:** Truncated to 120 chars with ellipsis — sensible
+- ✅ **Last run display:** Shows relative time + duration + status icon (✅/❌)
+- ✅ **Left panel integration:** Divider separates crons from files, consistent button styling
+
+## Verdict: REJECTED
+
+**Reason:** The single critical issue (API route hitting a non-existent HTTP endpoint) means the feature is 100% non-functional. The UI will always show the error state. Fix the data fetching approach (recommend shelling out to `openclaw cron list --json`) and resubmit. Everything else is solid.
