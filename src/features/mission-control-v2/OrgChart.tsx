@@ -120,12 +120,12 @@ function AgentCard({ node }: { node: NodeDef }) {
         background: statusColor,
         boxShadow: `0 0 6px ${statusColor}`,
       }} />
-      <div style={{ fontSize: compact ? 18 : 24, marginBottom: compact ? 3 : 6 }}>{node.emoji}</div>
-      <div style={{ fontSize: compact ? 11 : 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{node.name}</div>
-      <div style={{ fontSize: compact ? 8 : 10, color: '#64748B', lineHeight: 1.3, marginBottom: compact ? 3 : 4 }}>{node.role}</div>
+      <div style={{ fontSize: compact ? 22 : 30, marginBottom: compact ? 3 : 6 }}>{node.emoji}</div>
+      <div style={{ fontSize: compact ? 13 : 17, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{node.name}</div>
+      <div style={{ fontSize: compact ? 10 : 13, color: '#64748B', lineHeight: 1.3, marginBottom: compact ? 3 : 4 }}>{node.role}</div>
       {node.model !== 'human' && (
         <div style={{
-          display: 'inline-block', fontSize: 9, padding: '2px 7px',
+          display: 'inline-block', fontSize: 11, padding: '3px 9px',
           borderRadius: 4, background: '#0F1724', color: '#94A3B8',
           border: '1px solid #1E293B',
         }}>
@@ -143,14 +143,14 @@ export default function OrgChart() {
     <div style={{ padding: 24, height: '100%', overflow: 'auto' }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', marginBottom: 4 }}>👥 Org Chart</h1>
-        <p style={{ fontSize: 13, color: '#64748B' }}>Agent task force — updated 2026-03-25</p>
+        <h1 style={{ fontSize: 28, fontWeight: 600, color: '#fff', marginBottom: 4 }}>👥 Org Chart</h1>
+        <p style={{ fontSize: 15, color: '#64748B' }}>Agent task force — updated 2026-03-25</p>
       </div>
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: 20, marginBottom: 28 }}>
         {(Object.entries(STATUS_COLORS) as [Status, string][]).map(([status, color]) => (
-          <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748B' }}>
+          <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#64748B' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </div>

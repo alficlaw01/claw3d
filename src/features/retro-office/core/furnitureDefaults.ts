@@ -662,7 +662,7 @@ export const ensureOfficeServerRoom = (
 export const ensureOfficeGymRoom = (
   items: FurnitureItem[],
 ): FurnitureItem[] => {
-  const hasCurrentGymRoom = hasSignature(items, GYM_ROOM_SIGNATURES);
+  const hasCurrentGymRoom = hasAllSignatures(items, GYM_ROOM_SIGNATURES);
   if (hasCurrentGymRoom) return items;
 
   const hasPreviousGymRoom = hasAllSignatures(items, PREVIOUS_GYM_ROOM_SIGNATURES);
