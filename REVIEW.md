@@ -1,52 +1,52 @@
-# Judge QA Review — Claw3D Mission Control Toggle
+# Judge QA Review — Setup Tab
 
 Date: 2026-03-25
 Verdict: **APPROVED** ✅
 
 ## Summary
 
-Pixel merged Mission Control v2 into the Claw3D office page (`src/app/office/page.tsx`). A top bar with toggle pills (🏢 Office / 📊 Mission Control) switches between the 3D office and a full Mission Control dashboard containing Kanban, Usage, and Org Chart tabs. All features tested and working correctly.
+New Setup tab (⚙️) added to Mission Control sidebar. Two-panel layout: left file list, right content viewer. API reads 7 `.md` config files from the OpenClaw workspace and returns them with metadata. Clean, functional, no issues found.
 
-## Checklist
+## Checks Performed
 
-| # | Check | Result |
-|---|-------|--------|
-| 1 | Toggle bar renders with both pills | ✅ Both pills visible, correct styling, active state highlights properly |
-| 2 | Mission Control — Tasks tab | ✅ Kanban board renders all 23 tasks across 5 projects, drag-and-drop functional, status move buttons work |
-| 3 | Mission Control — Usage tab | ✅ Real JSONL data: 541.9M tokens, $416.11 cost, 1,821 calls. Daily chart, model + agent breakdowns all render |
-| 4 | Mission Control — Org Chart tab | ✅ All 16 agents present (Jason → Alfi → Scout, Nova team ×4, Atlas team ×3, Forge team ×3). Benito in both Hana and Flow teams |
-| 5 | Office toggle back | ✅ 3D office restores correctly — agents visible, room navigation, event console, heatmap/trails/edit buttons all intact |
-| 6 | localStorage persistence | ✅ `office-active-view` key updates on toggle: confirmed `"office"` and `"mission-control"` values stored correctly |
-| 7 | TypeScript | ✅ `npx tsc --noEmit` — zero errors |
-| 8 | Build | ✅ `.next/BUILD_ID` exists (built 2026-03-25 11:28, ID: `xowthXN6en3psHIa1Y8nx`) |
-| 9 | Live check | ✅ `http://localhost:3000/office` returns 200 with full page content |
-| 10 | No regressions | ✅ Office features intact: room tabs (Overview/Front desk/Lounge), agent avatars, event console, heatmap/trails/edit/voice buttons |
-| 11 | Console errors | ✅ No new errors. Pre-existing `api/office/call` 400s from March 24 unrelated to this change |
+| Check | Result |
+|-------|--------|
+| `npx tsc --noEmit` | ✅ Zero errors |
+| `curl /api/setup` | ✅ All 7 files returned with content + lastModified timestamps |
+| `/office` loads (200) | ✅ No regression |
+| Existing tabs (Tasks, Usage, Org) | ✅ Imports intact, no breakage |
+| Component quality | ✅ See details below |
+| Content accuracy | ✅ All 7 file paths exist and resolve correctly |
+| Layout | ✅ Two-panel flex layout, overflow handled |
+
+## Component Quality — SetupDashboard.tsx
+
+- **Loading state:** ✅ Present — shows "Loading setup files..." centered
+- **Error handling:** ✅ `.catch()` on fetch sets `loading=false` (graceful degradation — no crash)
+- **TypeScript:** ✅ Proper `SetupFile` interface, no `any` types
+- **SSR:** ✅ Loaded via `dynamic(() => import(...), { ssr: false })` in MissionControlShell — correct for a component that fetches client-side on mount
+- **No `any` types:** ✅ Confirmed
+
+## API Quality — route.ts
+
+- Reads from correct absolute paths under `/Users/alficlaw/.openclaw/workspace/`
+- All 7 files verified to exist on disk
+- `lastModified` via `fs.statSync` — present for all files
+- Graceful fallback: missing files return `"(file not found)"` with `null` timestamp
+- Uses synchronous `fs` — acceptable for 7 small files, no perf concern
 
 ## Issues Found
 
-### CRITICAL
-None.
-
-### HIGH
-None.
-
 ### MEDIUM
-None.
+
+1. **Error state not shown to user** — if the API fetch fails, `loading` goes to `false` but `files` stays empty, so the user sees an empty left panel with no explanation. Consider showing an error message. *Non-blocking — the API works and this is an edge case.*
 
 ### LOW
 
-1. **`calcSubtreeWidth` has a bug in the reduce callback** — `layoutTree` in OrgChart.tsx line `const totalChildWidth = agent.children.reduce((_, c) => calcSubtreeWidth(c), 0)` discards the accumulator and returns only the last child's width. Should be `(acc, c) => acc + calcSubtreeWidth(c)`. Currently works by accident because `calcSubtreeWidth` is called correctly elsewhere and the `Math.max(CARD_WIDTH, ...)` fallback compensates, but it could misalign for certain tree shapes. Non-blocking.
+2. **Left panel width (160px) may feel narrow** for descriptions on some files — descriptions wrap fine via `whiteSpace: 'normal'` but could feel cramped. Cosmetic only.
 
-2. **Task counts are static** — tasks.json has placeholder tasks from the roadmap (not live data). This is expected for v1 but worth noting.
-
-## Code Quality Notes
-
-- Clean separation: `MissionControlShell` dynamically imported with `ssr: false` — correct for client-only dashboard
-- Smart rendering: both views use `display: none/block` toggle (not unmount/remount), preserving 3D canvas state when switching
-- All inline styles consistent with Claw3D's existing style approach
-- Usage API reads real `.openclaw/agents/*/sessions/*.jsonl` files — production data, not mocked
+3. **No refresh mechanism** — if a file is edited externally, the user must reload the page to see changes. Acceptable for v1.
 
 ## Verdict: APPROVED ✅
 
-Clean merge. All 3 Mission Control tabs work, toggle persistence works, no TypeScript errors, no regressions to existing office features. The reduce bug in OrgChart is cosmetic and non-blocking. Ship it.
+Clean build, zero TS errors, API returns correct data for all 7 files, no regressions on existing tabs, proper loading/error handling, good SSR strategy with dynamic import. The medium issue (no visible error state on fetch failure) is non-blocking — the happy path works correctly and the edge case degrades gracefully rather than crashing. Ship it.
