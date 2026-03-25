@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
 export interface CronJob {
   id: string
   name: string
+  description?: string
   enabled: boolean
   schedule: {
     kind: string
@@ -17,12 +21,15 @@ export interface CronJob {
   delivery?: {
     mode: string
     channel?: string
+    to?: string
   }
   state?: {
     nextRunAtMs?: number
     lastRunAtMs?: number
     lastRunStatus?: string
+    lastStatus?: string
     lastDurationMs?: number
+    consecutiveErrors?: number
   }
 }
 
@@ -33,23 +40,19 @@ export interface CronsResponse {
 
 export async function GET(): Promise<NextResponse<CronsResponse>> {
   try {
-    const res = await fetch('http://localhost:18789/rpc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ method: 'cron.list', params: { includeDisabled: true } }),
-    })
+    const jobsPath = path.join(os.homedir(), '.openclaw', 'cron', 'jobs.json')
 
-    if (!res.ok) {
-      return NextResponse.json({ jobs: [], error: `Gateway returned ${res.status}` }, { status: 200 })
+    if (!fs.existsSync(jobsPath)) {
+      return NextResponse.json({ jobs: [], error: 'No cron jobs file found' })
     }
 
-    const data = await res.json()
+    const raw = fs.readFileSync(jobsPath, 'utf-8')
+    const data = JSON.parse(raw)
 
-    if (!data.result?.jobs) {
-      return NextResponse.json({ jobs: [], error: 'Unexpected response shape' }, { status: 200 })
-    }
+    // Handle both array and { version, jobs } shapes
+    const jobs: CronJob[] = Array.isArray(data) ? data : (data.jobs ?? [])
 
-    return NextResponse.json({ jobs: data.result.jobs as CronJob[] })
+    return NextResponse.json({ jobs })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ jobs: [], error: message }, { status: 200 })
